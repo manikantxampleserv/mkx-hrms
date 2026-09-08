@@ -32,8 +32,15 @@ app.use(responseMiddleware);
 app.use(activityTrackingMiddleware);
 
 /**
- * Health check endpoint
+ * Root and health check endpoints (handles Render platform health check pings)
  */
+app.all("/", (_req: Request, res: Response) => {
+  res.sendSuccess({
+    message: "MKX HRMS Backend API is live",
+    data: { status: "ok", timestamp: new Date().toISOString() },
+  });
+});
+
 app.get("/health", (_req: Request, res: Response) => {
   res.sendSuccess({
     message: "Service is healthy",
