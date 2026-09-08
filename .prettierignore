@@ -1,0 +1,7 @@
+node_modules
+dist
+build
+.next
+.git
+.gemini
+package-lock.json

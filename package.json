@@ -1,0 +1,27 @@
+{
+  "name": "mkx-hrms",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently -n \"BE,FE\" -c \"blue,green\" \"npm run dev --prefix mkx-hrms-be\" \"npm run dev --prefix mkx-hrms-fe\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "install:all": "npm install && npm --prefix mkx-hrms-be install && npm --prefix mkx-hrms-fe install",
+    "db:push": "npm --prefix mkx-hrms-be run db:push",
+    "prisma:generate": "npm --prefix mkx-hrms-be run prisma:generate",
+    "db:seed": "npm --prefix mkx-hrms-be run db:seed"
+  },
+  "prisma": {
+    "schema": "mkx-hrms-be/prisma/schema.prisma"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "prettier": "^3.9.6"
+  }
+}

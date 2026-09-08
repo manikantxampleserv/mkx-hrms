@@ -1,0 +1,52 @@
+{
+  "name": "mkx-hrms-fe",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.4.0",
+    "@mui/material": "^9.4.0",
+    "@mui/x-date-pickers": "^9.13.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-query": "^5.102.8",
+    "@tiptap/core": "^3.31.3",
+    "@tiptap/extension-image": "^3.31.3",
+    "@tiptap/extension-link": "^3.31.3",
+    "@tiptap/pm": "^3.31.3",
+    "@tiptap/react": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
+    "axios": "^1.20.0",
+    "clsx": "^2.1.1",
+    "dayjs": "^1.11.23",
+    "formik": "^2.4.9",
+    "framer-motion": "^13.1.1",
+    "lucide-react": "^1.39.0",
+    "mui-tiptap": "^1.31.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-hot-toast": "^2.6.0",
+    "react-router-dom": "^7.18.3",
+    "recharts": "^3.10.1",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.3",
+    "yup": "^1.7.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "code-inspector-plugin": "^2.0.8",
+    "oxlint": "^1.79.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2"
+  }
+}
