@@ -5,18 +5,12 @@ import 'package:flutter/foundation.dart';
 class ApiEndpoints {
   ApiEndpoints._();
 
-  /// Resolves the default backend base URL based on platform environment
-  static String get defaultBaseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:3000/api/v1';
-    }
-    if (Platform.isAndroid) {
-      // 10.0.2.2 points to host localhost in Android Emulator
-      return 'http://10.0.2.2:3000/api/v1';
-    }
-    // Windows Desktop, iOS Simulator, macOS
-    return 'http://localhost:3000/api/v1';
-  }
+  /// Production Live Render backend base URL
+  static const String liveBaseUrl = 'https://mkx-hrms-be.onrender.com/api/v1';
+
+  /// Resolves the default backend base URL
+  /// Configured with live Render backend
+  static String get defaultBaseUrl => liveBaseUrl;
 
   // Auth endpoints
   static const String login = '/auth/login';
