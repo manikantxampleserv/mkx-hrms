@@ -128,7 +128,7 @@ const seedEmployeesAndUsers = async (
       role: "Product Manager",
       roleName: "Manager",
       department: "Product",
-      status: "On Leave" as const,
+      status: "Active" as const,
       manager_name: "Sarah Chen",
       join_date: new Date("2024-01-22"),
       avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150",
@@ -142,7 +142,7 @@ const seedEmployeesAndUsers = async (
       role: "UX Designer",
       roleName: "Employee",
       department: "Design",
-      status: "On Leave" as const,
+      status: "Active" as const,
       manager_name: "Mike Johnson",
       join_date: new Date("2024-02-01"),
       avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150",
@@ -156,7 +156,7 @@ const seedEmployeesAndUsers = async (
       role: "QA Engineer",
       roleName: "Employee",
       department: "Engineering",
-      status: "Terminated" as const,
+      status: "Inactive" as const,
       manager_name: "Sarah Chen",
       join_date: new Date("2024-01-10"),
       avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
@@ -184,7 +184,7 @@ const seedEmployeesAndUsers = async (
       role: "Frontend Engineer",
       roleName: "Employee",
       department: "Engineering",
-      status: "On Leave" as const,
+      status: "Active" as const,
       manager_name: "Sarah Chen",
       join_date: new Date("2024-01-28"),
       avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150",
@@ -198,7 +198,7 @@ const seedEmployeesAndUsers = async (
       role: "VP of Engineering",
       roleName: "Admin",
       department: "Leadership",
-      status: "On Leave" as const,
+      status: "Active" as const,
       manager_name: "Board of Directors",
       join_date: new Date("2024-02-05"),
       avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150",
@@ -212,7 +212,7 @@ const seedEmployeesAndUsers = async (
       role: "HR Specialist",
       roleName: "HR Specialist",
       department: "People Ops",
-      status: "On Leave" as const,
+      status: "Active" as const,
       manager_name: "David Lee",
       join_date: new Date("2024-02-10"),
       avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150",
@@ -988,8 +988,10 @@ const seedBlogPosts = async (): Promise<void> => {
       status: "Published",
       author_name: "Sarah Connor",
       cover_image: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800",
-      excerpt: "Announcing the official rollout of MKX HRMS 2.0 with dynamic workforce analytics, streamlined attendance tracking, and enhanced communication feeds.",
-      content: "<h2>Next-Generation People Operations</h2><p>We are thrilled to launch MKX HRMS 2.0 to empower our teams across all departments. Built with modern technology, sleek dark-mode interfaces, and real-time synchronization, this platform marks a major milestone in our company journey.</p><h3>Key Capabilities</h3><ul><li><strong>Dynamic Workforce Analytics:</strong> Monitor headcount, retention trends, and team distributions in real-time.</li><li><strong>Seamless Time & Leave Management:</strong> Submit leave requests, log hours, and track approvals with ease.</li><li><strong>Integrated Recruitment Pipeline:</strong> Sourcing, reviewing, and onboarding talent collaboratively.</li></ul><blockquote>Our goal is to make every employee's daily workflow frictionless and transparent.</blockquote><p>Explore the features, customize your settings, and reach out to the HR Operations team for any questions.</p>",
+      excerpt:
+        "Announcing the official rollout of MKX HRMS 2.0 with dynamic workforce analytics, streamlined attendance tracking, and enhanced communication feeds.",
+      content:
+        "<h2>Next-Generation People Operations</h2><p>We are thrilled to launch MKX HRMS 2.0 to empower our teams across all departments. Built with modern technology, sleek dark-mode interfaces, and real-time synchronization, this platform marks a major milestone in our company journey.</p><h3>Key Capabilities</h3><ul><li><strong>Dynamic Workforce Analytics:</strong> Monitor headcount, retention trends, and team distributions in real-time.</li><li><strong>Seamless Time & Leave Management:</strong> Submit leave requests, log hours, and track approvals with ease.</li><li><strong>Integrated Recruitment Pipeline:</strong> Sourcing, reviewing, and onboarding talent collaboratively.</li></ul><blockquote>Our goal is to make every employee's daily workflow frictionless and transparent.</blockquote><p>Explore the features, customize your settings, and reach out to the HR Operations team for any questions.</p>",
       published_at: new Date("2026-08-15"),
     },
     {
@@ -999,8 +1001,10 @@ const seedBlogPosts = async (): Promise<void> => {
       status: "Published",
       author_name: "David Lee",
       cover_image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800",
-      excerpt: "Insights from our engineering leads on how we maintain high availability, clean domain architecture, and continuous delivery across cross-functional squads.",
-      content: "<h2>Building for Scale and Reliability</h2><p>Over the past year, our engineering team has doubled in size while maintaining sub-second API latencies and zero unplanned downtime. Here are the core pillars that guide our engineering practices:</p><h3>1. Strict Type Safety</h3><p>We mandate comprehensive TypeScript types across all services and client interfaces, eliminating entire categories of runtime bugs.</p><h3>2. Domain-Driven Modular Services</h3><p>Separation of concerns between payroll, workforce directory, and telemetry services ensures clean boundaries and independent deployments.</p><h3>3. Automated CI/CD</h3><p>Every pull request undergoes automated linting, typechecking, and regression testing before merging to main.</p>",
+      excerpt:
+        "Insights from our engineering leads on how we maintain high availability, clean domain architecture, and continuous delivery across cross-functional squads.",
+      content:
+        "<h2>Building for Scale and Reliability</h2><p>Over the past year, our engineering team has doubled in size while maintaining sub-second API latencies and zero unplanned downtime. Here are the core pillars that guide our engineering practices:</p><h3>1. Strict Type Safety</h3><p>We mandate comprehensive TypeScript types across all services and client interfaces, eliminating entire categories of runtime bugs.</p><h3>2. Domain-Driven Modular Services</h3><p>Separation of concerns between payroll, workforce directory, and telemetry services ensures clean boundaries and independent deployments.</p><h3>3. Automated CI/CD</h3><p>Every pull request undergoes automated linting, typechecking, and regression testing before merging to main.</p>",
       published_at: new Date("2026-08-28"),
     },
     {
@@ -1010,8 +1014,10 @@ const seedBlogPosts = async (): Promise<void> => {
       status: "Published",
       author_name: "Elena Rostova",
       cover_image: "https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=800",
-      excerpt: "Detailed overview of the 2026 vacation policy revisions, wellness days, remote working allowances, and rollover guidelines.",
-      content: "<h2>Work-Life Harmony at MKX</h2><p>We believe that rest and rejuvenation are essential for sustained creativity and focus. This guide outlines the updated 2026 guidelines for all full-time and remote team members.</p><h3>Vacation Entitlement</h3><p>Full-time team members receive 24 days of paid annual leave, in addition to statutory national holidays and 3 floating cultural observance days.</p><h3>Rollover Rules</h3><p>Up to 5 unused leave days can be carried forward into Q1 of the following calendar year.</p><blockquote>Please submit leave requests at least 5 business days in advance to facilitate squad planning.</blockquote>",
+      excerpt:
+        "Detailed overview of the 2026 vacation policy revisions, wellness days, remote working allowances, and rollover guidelines.",
+      content:
+        "<h2>Work-Life Harmony at MKX</h2><p>We believe that rest and rejuvenation are essential for sustained creativity and focus. This guide outlines the updated 2026 guidelines for all full-time and remote team members.</p><h3>Vacation Entitlement</h3><p>Full-time team members receive 24 days of paid annual leave, in addition to statutory national holidays and 3 floating cultural observance days.</p><h3>Rollover Rules</h3><p>Up to 5 unused leave days can be carried forward into Q1 of the following calendar year.</p><blockquote>Please submit leave requests at least 5 business days in advance to facilitate squad planning.</blockquote>",
       published_at: new Date("2026-09-01"),
     },
     {
@@ -1021,8 +1027,10 @@ const seedBlogPosts = async (): Promise<void> => {
       status: "Draft",
       author_name: "Marcus Vance",
       cover_image: "https://images.unsplash.com/photo-1531482615713-2afd69097998?w=800",
-      excerpt: "Get ready for the annual 48-hour innovation hackathon where cross-disciplinary teams build AI-driven prototypes and compete for company prizes.",
-      content: "<h2>Innovate, Collaborate, Build</h2><p>The annual MKX Hackathon returns this November! Whether you are an engineer, designer, product manager, or HR specialist, this is your opportunity to form multidisciplinary squads and prototype groundbreaking solutions.</p><h3>Hackathon Themes</h3><ul><li>AI-Assisted Workplace Automation</li><li>Eco-Conscious Operations</li><li>Customer Delight & Experience</li></ul><p>Stay tuned for registration details and squad formation guidelines coming next week!</p>",
+      excerpt:
+        "Get ready for the annual 48-hour innovation hackathon where cross-disciplinary teams build AI-driven prototypes and compete for company prizes.",
+      content:
+        "<h2>Innovate, Collaborate, Build</h2><p>The annual MKX Hackathon returns this November! Whether you are an engineer, designer, product manager, or HR specialist, this is your opportunity to form multidisciplinary squads and prototype groundbreaking solutions.</p><h3>Hackathon Themes</h3><ul><li>AI-Assisted Workplace Automation</li><li>Eco-Conscious Operations</li><li>Customer Delight & Experience</li></ul><p>Stay tuned for registration details and squad formation guidelines coming next week!</p>",
       published_at: null,
     },
   ];

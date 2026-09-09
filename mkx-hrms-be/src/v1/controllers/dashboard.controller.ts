@@ -36,9 +36,26 @@ export const getDashboardOverview = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const todayDate = new Date(`${todayStr}T00:00:00.000Z`);
+
     const totalEmployees = await prisma.employee.count();
-    const activeEmployees = await prisma.employee.count({ where: { status: "Active" } });
-    const onLeaveToday = await prisma.employee.count({ where: { status: "On Leave" } });
+    const activeEmployees = await prisma.employee.count({
+      where: { status: "Active" },
+    });
+
+    /**
+     * Compute real-time staff on approved leave today
+     */
+    const activeLeavesToday = await prisma.leave.findMany({
+      where: {
+        status: "Approved",
+        start_date: { lte: todayDate },
+        end_date: { gte: todayDate },
+      },
+      select: { employee_id: true },
+    });
+    const onLeaveToday = new Set(activeLeavesToday.map((l) => l.employee_id)).size;
     const activeCandidates = await prisma.candidate.count({ where: { status: "Active" } });
 
     const activities = await prisma.activityLog.findMany({

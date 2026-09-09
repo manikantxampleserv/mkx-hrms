@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../../libraries/prisma";
 import { generateExcelBuffer } from "../services/excel.service";
+import { generateDailyAttendance } from "../services/cron.service";
 
 /**
  * Controller to retrieve all attendance records with optional filtering
@@ -137,7 +138,9 @@ export const getAttendanceStats = async (
     const start = new Date(`${startDateStr}T00:00:00.000Z`);
     const end = new Date(`${endDateStr}T23:59:59.999Z`);
 
-    const employeeWhere: { status: string; department?: string } = { status: "Active" };
+    const employeeWhere: { status?: string; department?: string } = {
+      status: "Active",
+    };
     if (department !== "All") {
       employeeWhere.department = department;
     }
@@ -167,17 +170,20 @@ export const getAttendanceStats = async (
     const lateCount = records.filter((r) => r.status === "Late").length;
     const remoteCount = records.filter((r) => r.status === "Remote").length;
     const explicitAbsentCount = records.filter((r) => r.status === "Absent").length;
+    const onLeaveCount = records.filter((r) => r.status === "On Leave").length;
 
     const onTimeCount = presentCount;
     const totalPresent = presentCount + lateCount + remoteCount;
 
     /**
-     * For single-day queries like Today, active employees without a check-in record count as absent
+     * For single-day queries like Today, employees on leave, absent, or unrecorded are counted in absent card
      */
     const isSingleDay = startDateStr === endDateStr;
     const recordedEmpIds = new Set(records.map((r) => r.employee_id));
     const unrecordedCount = Math.max(0, totalEmployees - recordedEmpIds.size);
-    const absentCount = isSingleDay ? explicitAbsentCount + unrecordedCount : explicitAbsentCount;
+    const absentCount = isSingleDay
+      ? explicitAbsentCount + onLeaveCount + unrecordedCount
+      : explicitAbsentCount + onLeaveCount;
 
     const cards = [
       {
@@ -745,6 +751,31 @@ export const getMyAttendance = async (
         },
         history: formattedHistory,
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Controller to manually trigger daily attendance initialization for all active employees
+ *
+ * @param req - Express request with optional date body parameter
+ * @param res - Express response
+ * @param next - Next middleware delegate
+ */
+export const triggerDailyAttendanceCron = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const targetDate = req.body?.date as string | undefined;
+    const result = await generateDailyAttendance(targetDate);
+
+    res.sendSuccess({
+      message: `Daily attendance initialized: created ${result.createdCount} new records for ${result.date}`,
+      data: result,
     });
   } catch (err) {
     next(err);

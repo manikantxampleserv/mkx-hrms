@@ -65,11 +65,37 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 import { initCronJobs } from "./v1/services/cron.service";
+import { verifySmtpConnection } from "./v1/services/email.service";
+
+/**
+ * Normalizes employee statuses to strictly Active and Inactive
+ */
+const normalizeEmployeeStatuses = async (): Promise<void> => {
+  try {
+    await prisma.employee.updateMany({
+      where: { status: "On Leave" },
+      data: { status: "Active" },
+    });
+    await prisma.employee.updateMany({
+      where: { status: "Terminated" },
+      data: { status: "Inactive" },
+    });
+  } catch (error) {
+    logger.error("Failed to normalize employee statuses:", error);
+  }
+};
+
+normalizeEmployeeStatuses();
 
 /**
  * Initialize background jobs
  */
 initCronJobs();
+
+/**
+ * Verify SMTP mail service connectivity
+ */
+verifySmtpConnection();
 
 /**
  * Graceful shutdown procedure

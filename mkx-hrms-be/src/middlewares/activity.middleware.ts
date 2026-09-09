@@ -82,13 +82,13 @@ export const activityTrackingMiddleware = async (
   const numericId = !isNaN(Number(targetId)) ? Number(targetId) : undefined;
 
   try {
-    if (pathWithoutQuery.includes("/employees") && (method === "PUT" || method === "PATCH" || method === "DELETE")) {
+    if (
+      pathWithoutQuery.includes("/employees") &&
+      (method === "PUT" || method === "PATCH" || method === "DELETE")
+    ) {
       const emp = await prisma.employee.findFirst({
         where: {
-          OR: [
-            ...(numericId ? [{ id: numericId }] : []),
-            { employee_id: idStr },
-          ],
+          OR: [...(numericId ? [{ id: numericId }] : []), { employee_id: idStr }],
         },
       });
       if (emp) {
@@ -104,13 +104,13 @@ export const activityTrackingMiddleware = async (
           user_id: emp.user_id,
         };
       }
-    } else if (pathWithoutQuery.includes("/leaves") && (method === "PUT" || method === "PATCH" || method === "DELETE")) {
+    } else if (
+      pathWithoutQuery.includes("/leaves") &&
+      (method === "PUT" || method === "PATCH" || method === "DELETE")
+    ) {
       const leave = await prisma.leave.findFirst({
         where: {
-          OR: [
-            ...(numericId ? [{ id: numericId }] : []),
-            { leave_code: idStr },
-          ],
+          OR: [...(numericId ? [{ id: numericId }] : []), { leave_code: idStr }],
         },
         include: { employee: true },
       });
@@ -123,13 +123,16 @@ export const activityTrackingMiddleware = async (
           employee: { name: leave.employee?.name, id: leave.employee?.id },
         };
       }
-    } else if (pathWithoutQuery.includes("/recruitment") && (method === "PUT" || method === "PATCH" || method === "DELETE" || pathWithoutQuery.includes("/onboard"))) {
+    } else if (
+      pathWithoutQuery.includes("/recruitment") &&
+      (method === "PUT" ||
+        method === "PATCH" ||
+        method === "DELETE" ||
+        pathWithoutQuery.includes("/onboard"))
+    ) {
       const candidate = await prisma.candidate.findFirst({
         where: {
-          OR: [
-            ...(numericId ? [{ id: numericId }] : []),
-            { candidate_code: idStr },
-          ],
+          OR: [...(numericId ? [{ id: numericId }] : []), { candidate_code: idStr }],
         },
       });
       if (candidate) {
@@ -143,13 +146,13 @@ export const activityTrackingMiddleware = async (
           employee_id: candidate.employee_id,
         };
       }
-    } else if (pathWithoutQuery.includes("/blogs") && (method === "PUT" || method === "PATCH" || method === "DELETE")) {
+    } else if (
+      pathWithoutQuery.includes("/blogs") &&
+      (method === "PUT" || method === "PATCH" || method === "DELETE")
+    ) {
       const blog = await prisma.blogPost.findFirst({
         where: {
-          OR: [
-            ...(numericId ? [{ id: numericId }] : []),
-            { slug: idStr },
-          ],
+          OR: [...(numericId ? [{ id: numericId }] : []), { slug: idStr }],
         },
       });
       if (blog) {
@@ -191,7 +194,7 @@ export const activityTrackingMiddleware = async (
         }
       }
 
-      const body = (req.body && typeof req.body === "object") ? req.body : {};
+      const body = req.body && typeof req.body === "object" ? req.body : {};
       let name = "System";
       let subtext = "Action completed";
       let statusLabel = "Updated";
@@ -200,7 +203,10 @@ export const activityTrackingMiddleware = async (
 
       if (pathWithoutQuery.includes("/employees")) {
         if (method === "POST") {
-          const empName = body.name || [body.first_name, body.last_name].filter(Boolean).join(" ") || "New Employee";
+          const empName =
+            body.name ||
+            [body.first_name, body.last_name].filter(Boolean).join(" ") ||
+            "New Employee";
           name = `${empName} (Employee)`;
           subtext = `New Hire • ${body.department || "Organization"} (${body.role || "Staff"})`;
           statusLabel = "New Hire";
@@ -229,12 +235,12 @@ export const activityTrackingMiddleware = async (
 
           subtext = diffs.join(", ");
           statusLabel = (body.status as string) || "Updated";
-          if (body.status === "Terminated") {
+          if (body.status === "Inactive") {
             statusType = "error";
             bgAlpha = "rgba(241, 77, 76, 0.1)";
-          } else if (body.status === "On Leave") {
-            statusType = "warning";
-            bgAlpha = "rgba(255, 139, 37, 0.1)";
+          } else if (body.status === "Active") {
+            statusType = "success";
+            bgAlpha = "rgba(69, 186, 80, 0.1)";
           } else {
             statusType = "info";
             bgAlpha = "rgba(0, 177, 216, 0.1)";
@@ -300,8 +306,14 @@ export const activityTrackingMiddleware = async (
           if (diffs.length === 0) diffs.push("Updated candidate application");
           subtext = diffs.join(", ");
           statusLabel = (body.stage as string) || (body.status as string) || "Updated";
-          statusType = statusLabel === "Hired" ? "success" : statusLabel === "Rejected" ? "error" : "info";
-          bgAlpha = statusType === "success" ? "rgba(69, 186, 80, 0.1)" : statusType === "error" ? "rgba(241, 77, 76, 0.1)" : "rgba(0, 177, 216, 0.1)";
+          statusType =
+            statusLabel === "Hired" ? "success" : statusLabel === "Rejected" ? "error" : "info";
+          bgAlpha =
+            statusType === "success"
+              ? "rgba(69, 186, 80, 0.1)"
+              : statusType === "error"
+                ? "rgba(241, 77, 76, 0.1)"
+                : "rgba(0, 177, 216, 0.1)";
         }
       } else if (pathWithoutQuery.includes("/blogs")) {
         if (method === "POST") {
@@ -325,8 +337,14 @@ export const activityTrackingMiddleware = async (
           if (diffs.length === 0) diffs.push("Updated article content");
           subtext = diffs.join(", ");
           statusLabel = (body.status as string) || snapshot?.status || "Updated";
-          statusType = statusLabel === "Published" ? "success" : statusLabel === "Draft" ? "warning" : "info";
-          bgAlpha = statusType === "success" ? "rgba(69, 186, 80, 0.1)" : statusType === "warning" ? "rgba(255, 139, 37, 0.1)" : "rgba(0, 177, 216, 0.1)";
+          statusType =
+            statusLabel === "Published" ? "success" : statusLabel === "Draft" ? "warning" : "info";
+          bgAlpha =
+            statusType === "success"
+              ? "rgba(69, 186, 80, 0.1)"
+              : statusType === "warning"
+                ? "rgba(255, 139, 37, 0.1)"
+                : "rgba(0, 177, 216, 0.1)";
         } else if (method === "DELETE") {
           name = `${snapshot?.author_name || "Admin"} (Blog)`;
           subtext = `Deleted article: "${snapshot?.title || "Article"}"`;
@@ -347,7 +365,8 @@ export const activityTrackingMiddleware = async (
       await prisma.activityLog.create({
         data: {
           user_id: actorUserId,
-          employee_id: actorEmployeeId || (snapshot?.employee_id ? Number(snapshot.employee_id) : null),
+          employee_id:
+            actorEmployeeId || (snapshot?.employee_id ? Number(snapshot.employee_id) : null),
           initials,
           name,
           subtext: subtext.slice(0, 255),

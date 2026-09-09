@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import { prisma } from "../../libraries/prisma";
 import { createEmployeeWithUser } from "../services/employee.service";
 import { generateExcelBuffer } from "../services/excel.service";
+import { sendEmployeeWelcomeEmail } from "../services/email.service";
+import { logger } from "../../utils/logger";
 import { CreateEmployeeInput } from "../../types/employee.types";
 
 /**
@@ -124,7 +126,7 @@ export const getEmployeeStats = async (
   try {
     const total = await prisma.employee.count();
     const active = await prisma.employee.count({ where: { status: "Active" } });
-    const onLeave = await prisma.employee.count({ where: { status: "On Leave" } });
+    const inactive = await prisma.employee.count({ where: { status: "Inactive" } });
 
     const sixtyDaysAgo = new Date();
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
@@ -157,18 +159,18 @@ export const getEmployeeStats = async (
         icon_bg: "bg-[#45ba50]/10",
       },
       {
-        id: "on-leave",
-        title: "On Leave",
-        value: String(onLeave),
-        subtext: `${total > 0 ? ((onLeave / total) * 100).toFixed(1) : 0}% approved time-off windows`,
-        icon_name: "AccessTime",
-        icon_color: "text-[#ff8b25]",
-        icon_bg: "bg-[#ff8b25]/10",
+        id: "inactive-workforce",
+        title: "Inactive Staff",
+        value: String(inactive),
+        subtext: `${total > 0 ? ((inactive / total) * 100).toFixed(1) : 0}% offboarded or inactive`,
+        icon_name: "Cancel",
+        icon_color: "text-[#f14d4c]",
+        icon_bg: "bg-[#f14d4c]/10",
       },
       {
         id: "new-hires",
         title: "New Hires",
-        value: String(newHires > 0 ? newHires : 15),
+        value: String(newHires),
         subtext: "Joined in the last 60 days",
         icon_name: "PersonAdd",
         icon_color: "text-[#ad87ed]",
@@ -217,6 +219,19 @@ export const createEmployee = async (
     }
 
     const created = await createEmployeeWithUser(input);
+
+    if (created.temporaryPassword && created.employee.email) {
+      sendEmployeeWelcomeEmail({
+        name: created.employee.name,
+        email: created.employee.email,
+        employeeId: created.employee.employee_id,
+        role: created.employee.role,
+        department: created.employee.department,
+        temporaryPassword: created.temporaryPassword,
+      }).catch((emailError: unknown) => {
+        logger.error("Failed to send welcome email for created employee:", emailError);
+      });
+    }
 
     res.sendSuccess({
       statusCode: 201,

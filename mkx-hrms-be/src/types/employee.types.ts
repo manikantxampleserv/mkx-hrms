@@ -12,7 +12,7 @@ export interface Employee {
   role_id: number | null;
   department: string;
   department_id: number | null;
-  status: "Active" | "On Leave" | "Terminated";
+  status: "Active" | "Inactive";
   manager_name: string | null;
   manager_id: number | null;
   join_date: Date;
@@ -35,7 +35,7 @@ export interface CreateEmployeeInput {
   role_id?: number | null;
   department: string;
   department_id?: number | null;
-  status?: "Active" | "On Leave" | "Terminated";
+  status?: "Active" | "Inactive";
   manager_name?: string | null;
   manager_id?: number | null;
   join_date: Date | string;

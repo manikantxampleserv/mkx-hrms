@@ -49,13 +49,28 @@ export const getReportAnalytics = async (
 ): Promise<void> => {
   try {
     const totalEmployees = await prisma.employee.count();
+    const inactiveEmployees = await prisma.employee.count({
+      where: { status: "Inactive" },
+    });
+    const retentionRate =
+      totalEmployees > 0
+        ? `${(((totalEmployees - inactiveEmployees) / totalEmployees) * 100).toFixed(1)}%`
+        : "100.0%";
+
+    const payrollRecords = await prisma.payroll.findMany();
+    const totalMonthlyCompensation = payrollRecords.reduce(
+      (acc, curr) => acc + Number(curr.net_pay),
+      0,
+    );
+    const compensationStr =
+      totalMonthlyCompensation > 0 ? `$${(totalMonthlyCompensation / 1000).toFixed(1)}k` : "$0";
 
     const data = {
       summary_cards: [
         {
           id: "headcount",
           title: "Total Headcount",
-          value: String(totalEmployees > 0 ? totalEmployees : 248),
+          value: String(totalEmployees),
           change: "+12.4% vs last quarter",
           positive: true,
           icon_color: "text-[#00b1d8]",
@@ -64,7 +79,7 @@ export const getReportAnalytics = async (
         {
           id: "retention",
           title: "Retention Rate",
-          value: "96.2%",
+          value: retentionRate,
           change: "+1.8% vs last year",
           positive: true,
           icon_color: "text-[#45ba50]",
@@ -82,7 +97,7 @@ export const getReportAnalytics = async (
         {
           id: "compensation",
           title: "Monthly Compensation",
-          value: "$1.82M",
+          value: compensationStr,
           change: "+4.1% planned adjustment",
           positive: false,
           icon_color: "text-[#ad87ed]",

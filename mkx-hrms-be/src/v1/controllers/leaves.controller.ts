@@ -129,16 +129,58 @@ export const getLeaveStats = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const todayDate = new Date(`${todayStr}T00:00:00.000Z`);
+
+    const now = new Date();
+    const yearMonth = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+    }).format(now);
+    const [year, month] = yearMonth.split("-").map(Number);
+    const monthStart = new Date(Date.UTC(year, month - 1, 1));
+    const monthEnd = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
+
     const pendingCount = await prisma.leave.count({ where: { status: "Pending" } });
     const approvedCount = await prisma.leave.count({ where: { status: "Approved" } });
-    const totalCount = await prisma.leave.count();
-    const rate = totalCount > 0 ? ((approvedCount / totalCount) * 100).toFixed(1) : "94.2";
+    const rejectedCount = await prisma.leave.count({ where: { status: "Rejected" } });
+
+    /**
+     * Determine staff currently away on approved leave today
+     */
+    const activeLeavesToday = await prisma.leave.findMany({
+      where: {
+        status: "Approved",
+        start_date: { lte: todayDate },
+        end_date: { gte: todayDate },
+      },
+      select: { employee_id: true },
+    });
+    const onLeaveTodayCount = new Set(activeLeavesToday.map((l) => l.employee_id)).size;
+
+    /**
+     * Count leaves scheduled to take place within the current calendar month
+     */
+    const plannedThisMonth = await prisma.leave.count({
+      where: {
+        status: "Approved",
+        start_date: { lte: monthEnd },
+        end_date: { gte: monthStart },
+      },
+    });
+
+    /**
+     * Calculate approval rate across all adjudicated leave decisions
+     */
+    const decidedCount = approvedCount + rejectedCount;
+    const rate = decidedCount > 0 ? ((approvedCount / decidedCount) * 100).toFixed(1) : "0.0";
 
     const cards = [
       {
         id: "active-requests",
         title: "Pending Requests",
-        value: String(pendingCount > 0 ? pendingCount : 12),
+        value: String(pendingCount),
         subtext: "Requiring manager approval",
         icon_name: "Activity",
         icon_color: "text-[#00b1d8]",
@@ -147,7 +189,7 @@ export const getLeaveStats = async (
       {
         id: "on-leave-today",
         title: "On Leave Today",
-        value: "8",
+        value: String(onLeaveTodayCount),
         subtext: "Staff currently away from office",
         icon_name: "Calendar",
         icon_color: "text-[#45ba50]",
@@ -156,7 +198,7 @@ export const getLeaveStats = async (
       {
         id: "scheduled-month",
         title: "Planned This Month",
-        value: String(approvedCount > 0 ? approvedCount : 19),
+        value: String(plannedThisMonth),
         subtext: "Upcoming scheduled leave windows",
         icon_name: "Clock",
         icon_color: "text-[#ff8b25]",
@@ -248,14 +290,14 @@ export const exportLeaves = async (
 
     const exportData = leaves.map((leave) => ({
       "Leave Code": leave.leave_code,
-      "Employee": leave.employee?.name || "Unknown",
-      "Department": leave.employee?.department || "General",
+      Employee: leave.employee?.name || "Unknown",
+      Department: leave.employee?.department || "General",
       "Leave Type": leave.leave_type,
       "Start Date": leave.start_date ? leave.start_date.toISOString().split("T")[0] : "",
       "End Date": leave.end_date ? leave.end_date.toISOString().split("T")[0] : "",
       "Days Count": leave.days_count,
-      "Reason": leave.reason || "",
-      "Status": leave.status,
+      Reason: leave.reason || "",
+      Status: leave.status,
       "Applied On": leave.created_at ? leave.created_at.toISOString().split("T")[0] : "",
     }));
 
@@ -265,10 +307,7 @@ export const exportLeaves = async (
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
-    res.setHeader(
-      "Content-Disposition",
-      'attachment; filename="Leaves_Export.xlsx"',
-    );
+    res.setHeader("Content-Disposition", 'attachment; filename="Leaves_Export.xlsx"');
 
     res.send(buffer);
   } catch (err) {

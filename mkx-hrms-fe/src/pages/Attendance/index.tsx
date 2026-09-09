@@ -10,6 +10,7 @@ import {
   MoreHoriz,
   PersonOff,
   Search,
+  Sync,
   Visibility,
 } from "@mui/icons-material";
 import {
@@ -42,6 +43,7 @@ import {
   useGetAttendanceFilters,
   useGetAttendanceStats,
   useUpdateAttendanceStatus,
+  useGenerateDailyAttendance,
   type AttendanceRecord,
 } from "services/attendance";
 import { downloadExcelFromApi } from "src/utils/exportToExcel";
@@ -331,6 +333,11 @@ export default function Attendance() {
     refetchStats();
   });
 
+  const generateDailyAttendanceMutation = useGenerateDailyAttendance(() => {
+    refetch();
+    refetchStats();
+  });
+
   /**
    * Handles updating attendance status with feedback toast
    */
@@ -466,6 +473,24 @@ export default function Attendance() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() =>
+              generateDailyAttendanceMutation.mutate({ date: dateFilter || undefined })
+            }
+            disabled={generateDailyAttendanceMutation.isPending}
+            startIcon={
+              <Sync
+                className={`!w-4 !h-4 text-muted-foreground ${
+                  generateDailyAttendanceMutation.isPending ? "animate-spin" : ""
+                }`}
+              />
+            }
+            className="!border-border !bg-secondary !text-muted-foreground hover:!text-foreground !text-xs !normal-case !font-normal !px-3.5 !py-2 !rounded-[5px]"
+          >
+            {generateDailyAttendanceMutation.isPending ? "Initializing..." : "Initialize Today"}
+          </Button>
           <Button
             variant="outlined"
             size="small"

@@ -120,16 +120,48 @@ export const getPayrollStats = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
+    const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const todayDate = new Date(`${todayStr}T00:00:00.000Z`);
+
     const records = await prisma.payroll.findMany();
     const totalNet = records.reduce((acc, curr) => acc + Number(curr.net_pay), 0);
-    const avgSalary = records.length > 0 ? Math.round(totalNet / records.length) * 12 : 89200;
-    const pendingCount = await prisma.payroll.count({ where: { status: "Pending" } });
+    const avgSalary = records.length > 0 ? Math.round(totalNet / records.length) * 12 : 0;
+
+    const pendingRecords = await prisma.payroll.findMany({ where: { status: "Pending" } });
+    const pendingTotal = pendingRecords.reduce((acc, curr) => acc + Number(curr.net_pay), 0);
+    const pendingCount = pendingRecords.length;
+
+    /**
+     * Locate the next scheduled disbursement date from future payroll records
+     */
+    const upcomingPayroll = await prisma.payroll.findFirst({
+      where: {
+        pay_date: { gte: todayDate },
+      },
+      orderBy: { pay_date: "asc" },
+    });
+
+    const nextPayDateStr = upcomingPayroll
+      ? upcomingPayroll.pay_date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          timeZone: "Asia/Kolkata",
+        })
+      : new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString(
+          "en-US",
+          {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          },
+        );
 
     const cards = [
       {
         id: "total-payroll",
         title: "Total Monthly Payroll",
-        value: `$${totalNet > 0 ? totalNet.toLocaleString() : "182,450"}`,
+        value: `$${totalNet.toLocaleString()}`,
         subtext: "Calculated across active workforce",
         icon_name: "Wallet",
         icon_color: "text-[#00b1d8]",
@@ -147,7 +179,7 @@ export const getPayrollStats = async (
       {
         id: "pending-disbursements",
         title: "Pending Approval",
-        value: "$24,800",
+        value: `$${pendingTotal.toLocaleString()}`,
         subtext: `${pendingCount} payroll batch cycles awaiting signoff`,
         icon_name: "Clock",
         icon_color: "text-[#ff8b25]",
@@ -156,7 +188,7 @@ export const getPayrollStats = async (
       {
         id: "next-pay-date",
         title: "Next Pay Date",
-        value: "Sep 15, 2024",
+        value: nextPayDateStr,
         subtext: "Scheduled disbursement cycle",
         icon_name: "Calendar",
         icon_color: "text-[#ad87ed]",
@@ -410,4 +442,3 @@ export const getMyPayroll = async (
     next(err);
   }
 };
-

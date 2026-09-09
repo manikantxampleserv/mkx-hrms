@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import { prisma } from "../../libraries/prisma";
 import { onboardCandidateToEmployee } from "../services/employee.service";
 import { generateExcelBuffer } from "../services/excel.service";
+import { sendEmployeeWelcomeEmail } from "../services/email.service";
+import { logger } from "../../utils/logger";
 
 /**
  * Controller to retrieve all recruitment pipeline candidates
@@ -125,12 +127,31 @@ export const getRecruitmentStats = async (
   try {
     const totalCandidates = await prisma.candidate.count();
     const interviewingCount = await prisma.candidate.count({ where: { stage: "Interviewing" } });
+    const hiredCount = await prisma.candidate.count({ where: { stage: "Hired" } });
+    const rejectedCount = await prisma.candidate.count({ where: { stage: "Rejected" } });
+
+    /**
+     * Compute distinct active candidate job positions
+     */
+    const candidatePositions = await prisma.candidate.findMany({
+      where: { status: "Active" },
+      select: { position: true },
+      distinct: ["position"],
+    });
+    const activeOpenings = candidatePositions.length > 0 ? candidatePositions.length : 8;
+
+    /**
+     * Calculate offer acceptance rate from decided applications
+     */
+    const decidedCount = hiredCount + rejectedCount;
+    const acceptanceRate =
+      decidedCount > 0 ? `${((hiredCount / decidedCount) * 100).toFixed(1)}%` : "87.5%";
 
     const cards = [
       {
         id: "active-openings",
         title: "Active Openings",
-        value: "8",
+        value: String(activeOpenings),
         subtext: "Across Engineering, Design & Sales",
         icon_name: "Briefcase",
         icon_color: "text-[#00b1d8]",
@@ -139,7 +160,7 @@ export const getRecruitmentStats = async (
       {
         id: "pipeline-candidates",
         title: "In Pipeline",
-        value: String(totalCandidates > 0 ? totalCandidates : 64),
+        value: String(totalCandidates),
         subtext: "Active talent in evaluation stages",
         icon_name: "Users",
         icon_color: "text-[#45ba50]",
@@ -148,7 +169,7 @@ export const getRecruitmentStats = async (
       {
         id: "interviews-scheduled",
         title: "Interviews This Week",
-        value: String(interviewingCount > 0 ? interviewingCount * 3 : 18),
+        value: String(interviewingCount),
         subtext: "Technical and behavioral panels",
         icon_name: "Calendar",
         icon_color: "text-[#ff8b25]",
@@ -157,7 +178,7 @@ export const getRecruitmentStats = async (
       {
         id: "offer-acceptance",
         title: "Offer Acceptance",
-        value: "87.5%",
+        value: acceptanceRate,
         subtext: "Candidate conversion benchmark",
         icon_name: "CheckCircle2",
         icon_color: "text-[#ad87ed]",
@@ -205,6 +226,19 @@ export const onboardCandidate = async (
 
     const result = await onboardCandidateToEmployee(candidate.id, req.body);
 
+    if (result.temporaryPassword && result.employee.email) {
+      sendEmployeeWelcomeEmail({
+        name: result.employee.name,
+        email: result.employee.email,
+        employeeId: result.employee.employee_id,
+        role: result.employee.role,
+        department: result.employee.department,
+        temporaryPassword: result.temporaryPassword,
+      }).catch((emailError: unknown) => {
+        logger.error("Failed to send welcome email for onboarded candidate:", emailError);
+      });
+    }
+
     res.sendSuccess({
       statusCode: 201,
       message: `Candidate ${candidate.name} successfully onboarded as an employee`,
@@ -235,13 +269,13 @@ export const exportCandidates = async (
     const exportData = candidates.map((can) => ({
       "Candidate Code": can.candidate_code,
       "Full Name": can.name,
-      "Email": can.email,
-      "Position": can.position,
-      "Department": can.department,
-      "Stage": can.stage,
-      "Status": can.status,
-      "Experience": can.experience,
-      "Rating": can.rating,
+      Email: can.email,
+      Position: can.position,
+      Department: can.department,
+      Stage: can.stage,
+      Status: can.status,
+      Experience: can.experience,
+      Rating: can.rating,
       "Applied Date": can.applied_date ? can.applied_date.toISOString().split("T")[0] : "",
     }));
 
@@ -251,10 +285,7 @@ export const exportCandidates = async (
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
-    res.setHeader(
-      "Content-Disposition",
-      'attachment; filename="Candidates_Export.xlsx"',
-    );
+    res.setHeader("Content-Disposition", 'attachment; filename="Candidates_Export.xlsx"');
 
     res.send(buffer);
   } catch (err) {
@@ -395,4 +426,3 @@ export const deleteCandidate = async (
     next(err);
   }
 };
-

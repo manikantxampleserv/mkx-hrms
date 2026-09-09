@@ -7,6 +7,7 @@ import {
   updateAttendanceStatus,
   punchAttendance,
   getMyAttendance,
+  triggerDailyAttendanceCron,
 } from "../controllers/attendance.controller";
 
 const router = Router();
@@ -18,5 +19,6 @@ router.get("/filters", getAttendanceFilters);
 router.get("/export", exportAttendance);
 router.patch("/:id/status", updateAttendanceStatus);
 router.post("/punch", punchAttendance);
+router.post("/generate-daily", triggerDailyAttendanceCron);
 
 export default router;

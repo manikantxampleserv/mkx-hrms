@@ -15,14 +15,8 @@ class ApiInterceptor extends Interceptor {
     }
     options.headers['Accept'] = 'application/json';
     options.headers['Content-Type'] = 'application/json';
-    final offset = DateTime.now().timeZoneOffset;
-    final sign = offset.isNegative ? '-' : '+';
-    final tzOffset =
-        '$sign${offset.inHours.abs().toString().padLeft(2, '0')}:${(offset.inMinutes.abs() % 60).toString().padLeft(2, '0')}';
-    options.headers['x-timezone'] = DateTime.now().timeZoneName.isNotEmpty
-        ? DateTime.now().timeZoneName
-        : 'Asia/Kolkata';
-    options.headers['x-timezone-offset'] = tzOffset;
+    options.headers['x-timezone'] = 'Asia/Kolkata';
+    options.headers['x-timezone-offset'] = '+05:30';
 
     if (kDebugMode) {
       debugPrint('➡️ [DIO REQ] ${options.method} ${options.uri}');

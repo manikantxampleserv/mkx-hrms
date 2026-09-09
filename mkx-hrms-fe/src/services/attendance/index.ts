@@ -177,3 +177,53 @@ export const useUpdateAttendanceStatus = (onSuccessCallback?: () => void) => {
   };
 };
 
+/**
+ * Daily attendance generation result
+ */
+export interface DailyAttendanceInitResult {
+  createdCount: number;
+  totalActive: number;
+  date: string;
+}
+
+/**
+ * Hook to manually trigger daily attendance initialization for all active employees
+ *
+ * @param onSuccessCallback - Optional callback executed upon successful generation
+ * @returns Custom mutation instance
+ */
+export const useGenerateDailyAttendance = (onSuccessCallback?: () => void) => {
+  const mutation = useCustomMutation<
+    ApiResponse<DailyAttendanceInitResult>,
+    unknown,
+    { date?: string } | undefined
+  >({
+    toastMessages: {
+      loading: "Initializing daily attendance records...",
+      success: (res) =>
+        res.data?.createdCount
+          ? `Generated ${res.data.createdCount} new attendance records for ${res.data.date}`
+          : "All active employees already initialized for today",
+    },
+    onSuccess: () => {
+      if (onSuccessCallback) onSuccessCallback();
+    },
+  });
+
+  return {
+    ...mutation,
+    mutate: (payload?: { date?: string }) =>
+      mutation.mutate({
+        url: "/v1/attendance/generate-daily",
+        method: "POST",
+        data: payload || {},
+      }),
+    mutateAsync: (payload?: { date?: string }) =>
+      mutation.mutateAsync({
+        url: "/v1/attendance/generate-daily",
+        method: "POST",
+        data: payload || {},
+      }),
+  };
+};
+

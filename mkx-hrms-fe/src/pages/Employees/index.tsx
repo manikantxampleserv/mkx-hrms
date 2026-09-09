@@ -1,5 +1,4 @@
 import {
-  AccessTime,
   Cancel,
   CheckCircle,
   Delete,
@@ -37,7 +36,7 @@ import { ManageEmployee, type ManageEmployeeFormValues } from "./ManageEmployee"
 /**
  * Type representing an Employee status filter option
  */
-type StatusFilter = "All" | "Active" | "On Leave" | "Terminated";
+type StatusFilter = "All" | "Active" | "Inactive";
 
 import {
   useCreateEmployee,
@@ -51,7 +50,7 @@ import {
 /**
  * Filter tab definitions for the toolbar
  */
-const filterOptions: StatusFilter[] = ["All", "Active", "On Leave", "Terminated"];
+const filterOptions: StatusFilter[] = ["All", "Active", "Inactive"];
 
 /**
  * Props for the RowActions component
@@ -177,22 +176,10 @@ const getEmployeeColumns = (
           />
         );
       }
-      if (row.status === "On Leave") {
-        return (
-          <Chip
-            icon={<AccessTime className="!w-3.5 !h-3.5" />}
-            label="On Leave"
-            size="small"
-            color="warning"
-            variant="outlined"
-            className="!h-6 !text-xs !bg-warning/10 !border-warning/20 !font-medium"
-          />
-        );
-      }
       return (
         <Chip
           icon={<Cancel className="!w-3.5 !h-3.5" />}
-          label="Terminated"
+          label="Inactive"
           size="small"
           color="error"
           variant="outlined"
@@ -353,14 +340,24 @@ export default function Employees() {
   const dynamicKpiCards = useMemo(() => {
     const total = employees.length;
     const active = employees.filter((e) => e.status === "Active").length;
-    const onLeave = employees.filter((e) => e.status === "On Leave").length;
+    const inactive = employees.filter((e) => e.status === "Inactive").length;
+
+    const now = new Date();
+    const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+    const newHires = employees.filter((e) => {
+      if (!e.join_date) return false;
+      const join = new Date(e.join_date);
+      return join >= sixtyDaysAgo;
+    }).length;
+
+    const departmentsCount = new Set(employees.map((e) => e.department).filter(Boolean)).size;
 
     return [
       {
         id: "total-employees",
         title: "Total Employees",
         value: String(total),
-        subtext: "Across 6 global departments",
+        subtext: `Across ${departmentsCount} global department${departmentsCount === 1 ? "" : "s"}`,
         icon: People,
         icon_color: "text-[#00b1d8]",
         icon_bg: "bg-[#00b1d8]/10",
@@ -375,18 +372,18 @@ export default function Employees() {
         icon_bg: "bg-[#45ba50]/10",
       },
       {
-        id: "on-leave",
-        title: "On Leave",
-        value: String(onLeave),
-        subtext: `${total > 0 ? ((onLeave / total) * 100).toFixed(1) : 0}% approved time-off windows`,
-        icon: AccessTime,
-        icon_color: "text-[#ff8b25]",
-        icon_bg: "bg-[#ff8b25]/10",
+        id: "inactive-workforce",
+        title: "Inactive Staff",
+        value: String(inactive),
+        subtext: `${total > 0 ? ((inactive / total) * 100).toFixed(1) : 0}% offboarded or inactive`,
+        icon: Cancel,
+        icon_color: "text-[#f14d4c]",
+        icon_bg: "bg-[#f14d4c]/10",
       },
       {
         id: "new-hires",
         title: "New Hires",
-        value: "15",
+        value: String(newHires),
         subtext: "Joined in the last 60 days",
         icon: PersonAdd,
         icon_color: "text-[#ad87ed]",
@@ -667,13 +664,7 @@ export default function Employees() {
               <Chip
                 label={viewingEmployee.status}
                 size="small"
-                color={
-                  viewingEmployee.status === "Active"
-                    ? "success"
-                    : viewingEmployee.status === "On Leave"
-                      ? "warning"
-                      : "error"
-                }
+                color={viewingEmployee.status === "Active" ? "success" : "error"}
                 variant="outlined"
                 className="!text-xs"
               />

@@ -23,7 +23,7 @@ export interface ManageEmployeeFormValues {
   /** Department assignment */
   department: string;
   /** Initial employment status */
-  status: "Active" | "On Leave" | "Terminated";
+  status: "Active" | "Inactive";
   /** Designated reporting manager */
   manager: string;
   /** Official company join date (YYYY-MM-DD) */
@@ -51,8 +51,7 @@ export interface ManageEmployeeProps {
  */
 const statusOptions: SelectOption[] = [
   { label: "Active", value: "Active" },
-  { label: "On Leave", value: "On Leave" },
-  { label: "Terminated", value: "Terminated" },
+  { label: "Inactive", value: "Inactive" },
 ];
 
 /**
@@ -69,9 +68,7 @@ const employeeValidationSchema = Yup.object({
     .required("Work email is required"),
   role: Yup.string().trim().required("Role / Job title is required"),
   department: Yup.string().required("Department selection is required"),
-  status: Yup.string()
-    .oneOf(["Active", "On Leave", "Terminated"])
-    .required("Employment status is required"),
+  status: Yup.string().oneOf(["Active", "Inactive"]).required("Employment status is required"),
   manager: Yup.string().trim().required("Reporting manager is required"),
   join_date: Yup.string().required("Join date is required"),
 });

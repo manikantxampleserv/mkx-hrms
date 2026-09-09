@@ -20,9 +20,7 @@ class AttendanceRepository {
     if (employeeCode != null) queryParams['employee_code'] = employeeCode;
     final now = DateTime.now();
     queryParams['date'] = DateFormat('yyyy-MM-dd').format(now);
-    queryParams['timezone'] = now.timeZoneName.isNotEmpty
-        ? now.timeZoneName
-        : 'Asia/Kolkata';
+    queryParams['timezone'] = 'Asia/Kolkata';
 
     final response = await _client.get(
       ApiEndpoints.myAttendance,
@@ -61,10 +59,6 @@ class AttendanceRepository {
     final now = DateTime.now();
     final formattedTime = DateFormat('hh:mm a').format(now);
     final dateString = DateFormat('yyyy-MM-dd').format(now);
-    final offset = now.timeZoneOffset;
-    final sign = offset.isNegative ? '-' : '+';
-    final tzOffset =
-        '$sign${offset.inHours.abs().toString().padLeft(2, '0')}:${(offset.inMinutes.abs() % 60).toString().padLeft(2, '0')}';
 
     final response = await _client.post(
       ApiEndpoints.punch,
@@ -74,10 +68,8 @@ class AttendanceRepository {
         'location': location,
         'time': formattedTime,
         'date': dateString,
-        'timezone': now.timeZoneName.isNotEmpty
-            ? now.timeZoneName
-            : 'Asia/Kolkata',
-        'tz_offset': tzOffset,
+        'timezone': 'Asia/Kolkata',
+        'tz_offset': '+05:30',
       },
     );
 

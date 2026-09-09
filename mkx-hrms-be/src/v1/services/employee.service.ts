@@ -1,5 +1,27 @@
+import { Employee, User, Candidate } from "@prisma/client";
 import { prisma } from "../../libraries/prisma";
 import { CreateEmployeeInput } from "../../types/employee.types";
+import { hashPassword } from "./auth.service";
+import { generateTemporaryPassword } from "./email.service";
+
+/**
+ * Result returned upon employee creation and user provisioning
+ */
+export interface ProvisionedEmployeeResult {
+  employee: Employee;
+  user: User;
+  temporaryPassword: string;
+}
+
+/**
+ * Result returned upon candidate onboarding and user provisioning
+ */
+export interface OnboardCandidateResult {
+  employee: Employee;
+  user: User;
+  candidate: Candidate;
+  temporaryPassword: string;
+}
 
 /**
  * Standard default notification preferences initialized for new employees and users
@@ -55,12 +77,17 @@ export const parseNameComponents = (
  * with identical credentials, profile attributes, and default notification preferences.
  *
  * @param input - The employee creation input payload
- * @returns An object containing both the created employee and user records
+ * @returns An object containing both the created employee and user records with temporary credentials
  */
-export const createEmployeeWithUser = async (input: CreateEmployeeInput): Promise<unknown> => {
+export const createEmployeeWithUser = async (
+  input: CreateEmployeeInput,
+): Promise<ProvisionedEmployeeResult> => {
   const { first_name: parsedFirst, last_name: parsedLast } = parseNameComponents(input.name);
   const firstName = input.first_name || parsedFirst;
   const lastName = input.last_name || parsedLast;
+
+  const temporaryPassword = generateTemporaryPassword();
+  const hashedPassword = await hashPassword(temporaryPassword);
 
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
@@ -69,6 +96,7 @@ export const createEmployeeWithUser = async (input: CreateEmployeeInput): Promis
         first_name: firstName,
         last_name: lastName,
         email: input.email,
+        password_hash: hashedPassword,
         avatar: input.avatar ?? null,
         role_id: input.role_id ?? null,
         status: (input.status ?? "Active").toLowerCase(),
@@ -108,7 +136,7 @@ export const createEmployeeWithUser = async (input: CreateEmployeeInput): Promis
       },
     });
 
-    return { employee, user };
+    return { employee, user, temporaryPassword };
   });
 };
 
@@ -118,7 +146,7 @@ export const createEmployeeWithUser = async (input: CreateEmployeeInput): Promis
  *
  * @param candidateId - The database ID of the candidate being onboarded
  * @param additionalInfo - Additional workforce provisioning details (employee_id, manager, join_date, role, etc.)
- * @returns An object containing the onboarded employee and updated candidate records
+ * @returns An object containing the onboarded employee, user records with temporary credentials, and updated candidate
  */
 export const onboardCandidateToEmployee = async (
   candidateId: number,
@@ -130,7 +158,7 @@ export const onboardCandidateToEmployee = async (
     department?: string;
     role?: string;
   },
-): Promise<unknown> => {
+): Promise<OnboardCandidateResult> => {
   return prisma.$transaction(async (tx) => {
     const candidate = await tx.candidate.findUnique({
       where: { id: candidateId },
@@ -151,12 +179,16 @@ export const onboardCandidateToEmployee = async (
 
     const { first_name: parsedFirst, last_name: parsedLast } = parseNameComponents(candidate.name);
 
+    const temporaryPassword = generateTemporaryPassword();
+    const hashedPassword = await hashPassword(temporaryPassword);
+
     const user = await tx.user.create({
       data: {
         employee_id: generatedEmployeeId,
         first_name: parsedFirst,
         last_name: parsedLast,
         email: candidate.email,
+        password_hash: hashedPassword,
         avatar: candidate.avatar,
         status: "active",
         timezone: "UTC (GMT+00:00)",
@@ -207,6 +239,8 @@ export const onboardCandidateToEmployee = async (
       employee,
       user,
       candidate: updatedCandidate,
+      temporaryPassword,
     };
   });
 };
+
