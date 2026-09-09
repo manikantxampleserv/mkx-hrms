@@ -88,7 +88,7 @@ export default function Reports() {
   const activeSourcesData = analyticsResponse?.data?.recruitment_sources || [];
 
   return (
-    <StaggerContainer className="space-y-6">
+    <StaggerContainer className="space-y-4">
       {/* Top 4 HR Summary Cards */}
       <FadeUpItem className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {reportCards.map((card) => {

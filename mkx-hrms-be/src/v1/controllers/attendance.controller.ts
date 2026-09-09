@@ -110,27 +110,80 @@ export const getAttendance = async (
 /**
  * Controller to compute daily attendance KPI cards
  *
- * @param _req - Express request
+ * @param req - Express request
  * @param res - Express response
  * @param next - Next middleware delegate
  */
 export const getAttendanceStats = async (
-  _req: Request,
+  req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const totalEmployees = await prisma.employee.count();
-    const presentCount = await prisma.attendance.count({ where: { status: "Present" } });
-    const lateCount = await prisma.attendance.count({ where: { status: "Late" } });
-    const absentCount = await prisma.attendance.count({ where: { status: "Absent" } });
+    const headerTz = (req.headers["x-timezone"] as string | undefined) || undefined;
+    const queryTz = (req.query.timezone as string | undefined) || undefined;
+    const targetTz = resolveTimezone(queryTz || headerTz);
+
+    const department = (req.query.department as string | undefined) || "All";
+    const location = (req.query.location as string | undefined) || "All";
+
+    const startDateStr =
+      (req.query.startDate as string | undefined) ||
+      (req.query.date as string | undefined) ||
+      new Date().toLocaleDateString("en-CA", { timeZone: targetTz });
+
+    const endDateStr = (req.query.endDate as string | undefined) || startDateStr;
+
+    const start = new Date(`${startDateStr}T00:00:00.000Z`);
+    const end = new Date(`${endDateStr}T23:59:59.999Z`);
+
+    const employeeWhere: { status: string; department?: string } = { status: "Active" };
+    if (department !== "All") {
+      employeeWhere.department = department;
+    }
+    const totalEmployees = await prisma.employee.count({ where: employeeWhere });
+
+    const attendanceWhere: {
+      date: { gte: Date; lte: Date };
+      location?: string;
+      employee?: { department?: string };
+    } = {
+      date: { gte: start, lte: end },
+    };
+
+    if (location !== "All") {
+      attendanceWhere.location = location;
+    }
+    if (department !== "All") {
+      attendanceWhere.employee = { department };
+    }
+
+    const records = await prisma.attendance.findMany({
+      where: attendanceWhere,
+      include: { employee: true },
+    });
+
+    const presentCount = records.filter((r) => r.status === "Present").length;
+    const lateCount = records.filter((r) => r.status === "Late").length;
+    const remoteCount = records.filter((r) => r.status === "Remote").length;
+    const explicitAbsentCount = records.filter((r) => r.status === "Absent").length;
+
     const onTimeCount = presentCount;
+    const totalPresent = presentCount + lateCount + remoteCount;
+
+    /**
+     * For single-day queries like Today, active employees without a check-in record count as absent
+     */
+    const isSingleDay = startDateStr === endDateStr;
+    const recordedEmpIds = new Set(records.map((r) => r.employee_id));
+    const unrecordedCount = Math.max(0, totalEmployees - recordedEmpIds.size);
+    const absentCount = isSingleDay ? explicitAbsentCount + unrecordedCount : explicitAbsentCount;
 
     const cards = [
       {
         id: "present-today",
-        title: "Present Today",
-        value: `${presentCount + lateCount} / ${totalEmployees > 0 ? totalEmployees : 205}`,
+        title: isSingleDay ? "Present Today" : "Total Present",
+        value: `${totalPresent} / ${totalEmployees > 0 ? totalEmployees : records.length}`,
         subtext: "Active workforce attendance",
         icon_name: "HowToReg",
         icon_color: "text-[#00b1d8]",
@@ -349,62 +402,19 @@ interface PunchUpdatePayload {
 }
 
 /**
- * Resolves a valid IANA timezone identifier from an input string, header, user preference, or fallback
- *
- * @param clientTz - Timezone string passed from client body, query, or headers
- * @param userTz - Timezone string saved on user record
- * @returns Standard IANA timezone string (defaults to Asia/Kolkata)
+ * Application-wide fixed timezone constant pinned to Asia/Kolkata
  */
-export const resolveTimezone = (clientTz?: string | null, userTz?: string | null): string => {
-  const candidate = (clientTz || userTz || process.env.APP_TIMEZONE || "").trim();
+export const APP_TIMEZONE = "Asia/Kolkata";
 
-  if (!candidate) return "Asia/Kolkata";
-
-  if (
-    candidate === "IST" ||
-    candidate.startsWith("IST") ||
-    candidate === "+05:30" ||
-    candidate === "Asia/Calcutta"
-  ) {
-    return "Asia/Kolkata";
-  }
-  if (
-    candidate === "PT" ||
-    candidate.startsWith("PT") ||
-    candidate === "-08:00" ||
-    candidate === "-07:00"
-  ) {
-    return "America/Los_Angeles";
-  }
-  if (
-    candidate === "ET" ||
-    candidate.startsWith("ET") ||
-    candidate === "-05:00" ||
-    candidate === "-04:00"
-  ) {
-    return "America/New_York";
-  }
-  if (
-    candidate === "CET" ||
-    candidate.startsWith("CET") ||
-    candidate === "+01:00" ||
-    candidate === "+02:00"
-  ) {
-    return "Europe/Paris";
-  }
-  if (candidate === "UTC" || candidate.startsWith("UTC")) {
-    if (clientTz && (clientTz === "UTC" || clientTz.startsWith("UTC"))) {
-      return "UTC";
-    }
-    return "Asia/Kolkata";
-  }
-
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: candidate });
-    return candidate;
-  } catch {
-    return "Asia/Kolkata";
-  }
+/**
+ * Returns the fixed application timezone
+ *
+ * @param _clientTz - Unused client timezone argument
+ * @param _userTz - Unused user timezone argument
+ * @returns Standard timezone string always pinned to Asia/Kolkata
+ */
+export const resolveTimezone = (_clientTz?: string | null, _userTz?: string | null): string => {
+  return APP_TIMEZONE;
 };
 
 /**

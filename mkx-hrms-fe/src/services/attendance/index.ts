@@ -75,12 +75,26 @@ export const useGetAttendance = (params?: {
 /**
  * Hook to retrieve attendance summary KPI metrics
  *
+ * @param params - Optional query parameters for date and category filtering
  * @returns React Query query result
  */
-export const useGetAttendanceStats = () => {
+export const useGetAttendanceStats = (params?: {
+  startDate?: string;
+  endDate?: string;
+  department?: string;
+  location?: string;
+}) => {
+  const queryString = params
+    ? `?${new URLSearchParams(
+        Object.entries(params).filter(
+          ([, v]) => v !== undefined && v !== "" && v !== "All",
+        ) as [string, string][],
+      ).toString()}`
+    : "";
+
   return useCustomQuery<ApiResponse<AttendanceStatCard[]>>(
-    ["attendance", "stats"],
-    "/v1/attendance/stats",
+    ["attendance", "stats", params],
+    `/v1/attendance/stats${queryString}`,
   );
 };
 

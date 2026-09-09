@@ -69,7 +69,7 @@ export const getSettings = async (
         last_name: user?.last_name || "Morgan",
         email: user?.email || "alex.morgan@mkx.dev",
         role: user?.role?.name || user?.employee?.role || "Employee",
-        timezone: user?.timezone || "UTC (GMT+00:00)",
+        timezone: "Asia/Kolkata",
         avatar:
           user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
       },
@@ -129,7 +129,7 @@ export const updateProfile = async (
         first_name: first_name ?? user.first_name,
         last_name: last_name ?? user.last_name,
         email: email ?? user.email,
-        timezone: timezone ?? user.timezone,
+        timezone: "Asia/Kolkata",
         avatar: avatar !== undefined ? avatar : user.avatar,
       },
     });

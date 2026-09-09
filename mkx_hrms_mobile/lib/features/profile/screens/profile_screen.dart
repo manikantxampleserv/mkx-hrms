@@ -211,7 +211,7 @@ class ProfileScreen extends StatelessWidget {
                     _buildInfoTile(
                       icon: Icons.access_time_rounded,
                       label: 'Timezone',
-                      value: user?.timezone ?? 'UTC (GMT+00:00)',
+                      value: 'Asia/Kolkata (IST)',
                       isDark: isDark,
                     ),
                   ],

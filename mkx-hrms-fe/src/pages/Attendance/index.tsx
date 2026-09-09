@@ -210,19 +210,17 @@ function getAttendanceColumns(
     },
     {
       header: "CHECK IN",
-      cell: (row) => <span className="text-sm font-medium text-foreground">{row.check_in}</span>,
+      cell: (row) => <span className="font-medium text-foreground">{row.check_in}</span>,
       width: "12%",
     },
     {
       header: "CHECK OUT",
-      cell: (row) => <span className="text-sm text-muted-foreground">{row.check_out}</span>,
+      cell: (row) => <span className="font-medium text-foreground">{row.check_out}</span>,
       width: "12%",
     },
     {
       header: "WORK HOURS",
-      cell: (row) => (
-        <span className="text-sm font-semibold text-foreground">{row.work_hours}</span>
-      ),
+      cell: (row) => <span className="font-semibold text-foreground">{row.work_hours}</span>,
       width: "12%",
     },
     {
@@ -321,7 +319,12 @@ export default function Attendance() {
 
   const { data: filtersResponse } = useGetAttendanceFilters();
   const filterOptions = filtersResponse?.data;
-  const { data: statsResponse, refetch: refetchStats } = useGetAttendanceStats();
+  const { data: statsResponse, refetch: refetchStats } = useGetAttendanceStats({
+    startDate: dateFilter || undefined,
+    endDate: dateFilter || undefined,
+    department: departmentFilter,
+    location: locationFilter,
+  });
 
   const updateAttendanceStatusMutation = useUpdateAttendanceStatus(() => {
     refetch();
@@ -409,7 +412,7 @@ export default function Attendance() {
   }, [records, searchTerm, statusFilter]);
 
   return (
-    <StaggerContainer className="space-y-6">
+    <StaggerContainer className="space-y-4">
       <FadeUpItem className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {activeKpiCards.map((card) => (
           <StatsCard

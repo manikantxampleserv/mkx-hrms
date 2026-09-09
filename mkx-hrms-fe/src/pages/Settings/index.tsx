@@ -60,32 +60,7 @@ const tabs: TabItem[] = [
   { id: "security", label: "Security", icon: Shield },
 ];
 
-/**
- * Timezone selection options matching database values and standard timezones
- */
-const timezoneOptions: SelectOption[] = [
-  { label: "Coordinated Universal Time (UTC) - GMT+00:00", value: "UTC (GMT+00:00)" },
-  { label: "Pacific Time (PT) - GMT-08:00", value: "PT (GMT-08:00)" },
-  { label: "Eastern Time (ET) - GMT-05:00", value: "ET (GMT-05:00)" },
-  { label: "India Standard Time (IST) - GMT+05:30", value: "IST (GMT+05:30)" },
-  { label: "Central European Time (CET) - GMT+01:00", value: "CET (GMT+01:00)" },
-];
 
-/**
- * Normalizes timezone string to match option values
- *
- * @param tz - Raw timezone string from API or user context
- * @returns Standardized timezone value matching select options
- */
-const normalizeTimezone = (tz?: string | null): string => {
-  if (!tz) return "UTC (GMT+00:00)";
-  if (tz === "UTC" || tz === "UTC (GMT+00:00)") return "UTC (GMT+00:00)";
-  if (tz === "PT" || tz.startsWith("PT")) return "PT (GMT-08:00)";
-  if (tz === "ET" || tz.startsWith("ET")) return "ET (GMT-05:00)";
-  if (tz === "IST" || tz.startsWith("IST")) return "IST (GMT+05:30)";
-  if (tz === "CET" || tz.startsWith("CET")) return "CET (GMT+01:00)";
-  return tz;
-};
 
 /**
  * Delivery channels for system alerts
@@ -165,7 +140,6 @@ export default function Settings() {
     last_name: user?.last_name || "",
     email: user?.email || "",
     role: user?.role || "",
-    timezone: normalizeTimezone(user?.timezone),
   });
 
   useEffect(() => {
@@ -177,7 +151,6 @@ export default function Settings() {
         last_name: p.last_name || user?.last_name || "",
         email: p.email || user?.email || "",
         role: p.role || user?.role || "",
-        timezone: normalizeTimezone(p.timezone || user?.timezone),
       });
     } else if (user) {
       setProfileForm({
@@ -186,7 +159,6 @@ export default function Settings() {
         last_name: user.last_name || "",
         email: user.email || "",
         role: user.role || "",
-        timezone: normalizeTimezone(user.timezone),
       });
     }
   }, [settingsResponse, user]);
@@ -299,17 +271,7 @@ export default function Settings() {
               />
             </div>
 
-            <div className="w-full md:w-[calc(50%-12px)] mb-6">
-              <Select
-                name="timezone"
-                label="Preferred Timezone"
-                value={profileForm.timezone}
-                options={timezoneOptions}
-                onValueChange={(val) =>
-                  setProfileForm((prev) => ({ ...prev, timezone: String(val) }))
-                }
-              />
-            </div>
+
 
             <div className="pt-4 border-t border-border flex justify-end">
               <Button

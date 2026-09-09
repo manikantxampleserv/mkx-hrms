@@ -53,7 +53,7 @@ export default function Dashboard(): React.ReactElement {
   );
 
   return (
-    <StaggerContainer className="space-y-6">
+    <StaggerContainer className="space-y-4">
       <FadeUpItem className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Total Employees"
@@ -146,9 +146,7 @@ export default function Dashboard(): React.ReactElement {
                         <p className="text-sm font-medium text-foreground truncate">
                           {activity.name}
                         </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {activity.subtext}
-                        </p>
+                        <p className="text-xs text-muted-foreground truncate">{activity.subtext}</p>
                       </div>
                     </div>
                     <Chip

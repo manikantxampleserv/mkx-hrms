@@ -10,7 +10,7 @@ export interface UserProfileSettings {
   last_name: string;
   email: string;
   role: string;
-  timezone: string;
+  timezone?: string;
   avatar: string;
 }
 

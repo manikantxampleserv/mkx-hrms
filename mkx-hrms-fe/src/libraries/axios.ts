@@ -19,13 +19,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    const userTimezone =
-      typeof Intl !== "undefined"
-        ? Intl.DateTimeFormat().resolvedOptions().timeZone
-        : "Asia/Kolkata";
-    if (userTimezone) {
-      config.headers["x-timezone"] = userTimezone;
-    }
+    config.headers["x-timezone"] = "Asia/Kolkata";
     return config;
   },
   (error) => {

@@ -9,7 +9,6 @@ import {
   Payment,
   Person,
   Settings as SettingsIcon,
-  TextFields,
   WorkOutlined,
 } from "@mui/icons-material";
 import {
@@ -21,11 +20,9 @@ import {
   IconButton,
   ListItemIcon,
   MenuItem,
-  Tooltip,
 } from "@mui/material";
 import { useTheme } from "context/ThemeContext/useTheme";
 import { useAuth } from "contexts/AuthContext";
-import { useFontContext } from "contexts/FontContext";
 import { Moon, Sun } from "lucide-react";
 import { useState, type MouseEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -102,7 +99,6 @@ export function Header() {
   const [notifications, setNotifications] = useState<AppNotification[]>(initialNotifications);
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<HTMLElement | null>(null);
 
-  const { font } = useFontContext();
   const [fontModalOpen, setFontModalOpen] = useState(false);
 
   const [profileAnchorEl, setProfileAnchorEl] = useState<HTMLElement | null>(null);
@@ -396,25 +392,6 @@ export function Header() {
               {isDark ? "Dark" : "Light"}
             </span>
           </MenuItem>
-
-          <MenuItem
-            onClick={() => {
-              setProfileAnchorEl(null);
-              setFontModalOpen(true);
-            }}
-            className="!text-xs !py-2 !px-2.5 !gap-1 !rounded-[5px] !text-muted-foreground hover:!text-foreground hover:!bg-secondary/70 flex items-center justify-between"
-          >
-            <div className="flex items-center gap-2.5">
-              <ListItemIcon className="!min-w-0 !text-muted-foreground">
-                <TextFields className="w-4 h-4" />
-              </ListItemIcon>
-              <span className="text-xs">Typography</span>
-            </div>
-            <span className="text-[10px] uppercase font-semibold text-muted-foreground/80 bg-secondary px-1.5 py-0.5 rounded truncate max-w-[80px]">
-              {font === "Default" ? "Normal" : font}
-            </span>
-          </MenuItem>
-
           <Divider className="!my-1 !border-border/60" />
 
           <MenuItem
