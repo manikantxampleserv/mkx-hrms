@@ -1,15 +1,18 @@
 @import "tailwindcss";
 
-@font-face {
-  font-family: "Rosemary";
-  src: url("/src/assets/fonts/Rosemary.ttf") format("truetype");
-  font-weight: normal;
-  font-style: normal;
-}
-
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
+  --font-sans: var(
+    --font-family,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif
+  );
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -53,6 +56,7 @@
 
 @layer base {
   :root {
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --background: #ffffff;
     --foreground: #09090b;
     --card: #ffffff;
@@ -136,10 +140,25 @@
     border-color: var(--border);
   }
 
+  html,
+  body,
+  button,
+  input,
+  select,
+  textarea,
+  .MuiTypography-root,
+  .MuiTableCell-root,
+  .MuiChip-root,
+  .MuiButton-root,
+  .MuiInputBase-root,
+  .MuiMenuItem-root,
+  .MuiFormLabel-root {
+    font-family: var(--font-family) !important;
+  }
+
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: "Rosemary", "Inter", sans-serif;
     /* For standard styling */
     font-feature-settings:
       "rlig" 1,

@@ -4,7 +4,7 @@ import axios from "axios";
  * Create the axios instance
  */
 export const api = axios.create({
-  baseURL: "/api" /** Proxied by Vite to the backend */,
+  baseURL: import.meta.env.VITE_BASE_URL || "/api",
   headers: {
     "Content-Type": "application/json",
   },
@@ -18,6 +18,13 @@ api.interceptors.request.use(
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    const userTimezone =
+      typeof Intl !== "undefined"
+        ? Intl.DateTimeFormat().resolvedOptions().timeZone
+        : "Asia/Kolkata";
+    if (userTimezone) {
+      config.headers["x-timezone"] = userTimezone;
     }
     return config;
   },

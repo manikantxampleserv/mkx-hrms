@@ -128,26 +128,26 @@ export function DataTable<T>({
                         {isFirstCol ? (
                           <Box className="flex items-center gap-3">
                             <Skeleton
-                              variant="circular"
-                              width={34}
-                              height={34}
+                              variant="rounded"
+                              width={36}
+                              height={36}
                               animation="wave"
-                              className="!bg-muted/60 shrink-0"
+                              className="!bg-muted/70 !rounded-[8px] shrink-0"
                             />
                             <Box className="flex flex-col gap-1.5 flex-1 min-w-[120px]">
                               <Skeleton
                                 variant="text"
-                                width="70%"
-                                height={15}
+                                width="75%"
+                                height={16}
                                 animation="wave"
-                                className="!bg-muted/60 !rounded-[3px]"
+                                className="!bg-muted/70 !rounded-[4px]"
                               />
                               <Skeleton
                                 variant="text"
                                 width="45%"
                                 height={12}
                                 animation="wave"
-                                className="!bg-muted/40 !rounded-[3px]"
+                                className="!bg-muted/40 !rounded-[4px]"
                               />
                             </Box>
                           </Box>
@@ -158,16 +158,49 @@ export function DataTable<T>({
                               width={28}
                               height={28}
                               animation="wave"
-                              className="!bg-muted/50 !rounded-[5px]"
+                              className="!bg-muted/50 !rounded-[6px]"
+                            />
+                          </Box>
+                        ) : col.header.includes("STATUS") ? (
+                          <Skeleton
+                            variant="rounded"
+                            width={82}
+                            height={24}
+                            animation="wave"
+                            className="!bg-muted/50 !rounded-[5px]"
+                          />
+                        ) : col.header.includes("TYPE") ? (
+                          <Skeleton
+                            variant="rounded"
+                            width={74}
+                            height={22}
+                            animation="wave"
+                            className="!bg-muted/50 !rounded-[5px]"
+                          />
+                        ) : col.header.includes("DURATION") || col.header.includes("ROLE") ? (
+                          <Box className="flex flex-col gap-1.5">
+                            <Skeleton
+                              variant="text"
+                              width="85%"
+                              height={15}
+                              animation="wave"
+                              className="!bg-muted/60 !rounded-[4px]"
+                            />
+                            <Skeleton
+                              variant="text"
+                              width="40%"
+                              height={11}
+                              animation="wave"
+                              className="!bg-muted/40 !rounded-[4px]"
                             />
                           </Box>
                         ) : (
                           <Skeleton
                             variant="text"
-                            width={colIndex % 2 === 0 ? "75%" : "55%"}
+                            width={colIndex % 2 === 0 ? "70%" : "50%"}
                             height={15}
                             animation="wave"
-                            className="!bg-muted/50 !rounded-[3px]"
+                            className="!bg-muted/50 !rounded-[4px]"
                           />
                         )}
                       </TableCell>

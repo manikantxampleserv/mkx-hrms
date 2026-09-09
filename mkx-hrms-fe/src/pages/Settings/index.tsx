@@ -1,6 +1,7 @@
 import { Button, Checkbox, Chip, Switch } from "@mui/material";
 import { useTheme } from "context/ThemeContext/useTheme";
 import { useAuth } from "contexts/AuthContext";
+import { useFontContext } from "contexts/FontContext";
 import {
   Bell,
   ExternalLink,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useGetSettings, useUpdateProfile } from "services/settings";
+import { FontSwitcherModal } from "shared/FontSwitcherModal";
 import { ImagePicker } from "shared/ImagePicker";
 import { Input } from "shared/Input";
 import { Select, type SelectOption } from "shared/Select";
@@ -151,6 +153,9 @@ export default function Settings() {
     return settingsResponse?.data?.notification_preferences || [];
   }, [settingsResponse]);
 
+  const { font } = useFontContext();
+  const [fontModalOpen, setFontModalOpen] = useState(false);
+
   /**
    * Controlled form state for Profile bound to real authenticated user
    */
@@ -207,9 +212,9 @@ export default function Settings() {
   }, [theme]);
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
       {/* Page Header */}
-      <div className="mb-8">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1.5">
           Manage your account preferences, system notifications, and third-party integrations
@@ -217,7 +222,7 @@ export default function Settings() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="flex items-center gap-1 bg-card p-1 rounded-lg border border-border w-fit mb-8">
+      <div className="flex items-center gap-1 bg-card p-1 rounded-lg border border-border w-fit mb-4">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -241,13 +246,13 @@ export default function Settings() {
 
       {/* PROFILE TAB */}
       {activeTab === "profile" && (
-        <div className="space-y-8">
+        <div className="space-y-4">
           <SettingsPanel
             title="Personal Information"
             description="Update your personal details and company preferences"
           >
             {/* Avatar Image Picker */}
-            <div className="mb-8">
+            <div className="mb-4">
               <ImagePicker
                 name="avatar"
                 label="Profile Picture"
@@ -317,7 +322,10 @@ export default function Settings() {
             </div>
           </SettingsPanel>
 
-          <SettingsPanel title="Display Preferences" description="Customize appearance and theme">
+          <SettingsPanel
+            title="Display Preferences"
+            description="Customize appearance and typography"
+          >
             <SettingsRow
               label="Dark Mode"
               description="Switch between light and OLED dark mode across the entire dashboard"
@@ -326,6 +334,19 @@ export default function Settings() {
                 checked={isDarkMode}
                 onChange={(e) => setTheme(e.target.checked ? "dark" : "light")}
               />
+            </SettingsRow>
+            <SettingsRow
+              label="Global Typography"
+              description={`Active font: "${font === "Default" ? "Normal (Default)" : font}". Choose from Google Fonts catalog or type any custom font.`}
+            >
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setFontModalOpen(true)}
+                className="!normal-case !text-xs !rounded-[5px] !border-border !text-foreground"
+              >
+                Change Font ({font === "Default" ? "Normal" : font})
+              </Button>
             </SettingsRow>
           </SettingsPanel>
         </div>
@@ -393,7 +414,7 @@ export default function Settings() {
                   key={item.key}
                   className="bg-card border border-border rounded-xl p-6 flex flex-col justify-between shadow-xs"
                 >
-                  <div className="flex justify-between items-start mb-8 gap-4">
+                  <div className="flex justify-between items-start mb-4 gap-4">
                     <div className="flex gap-4">
                       <div className="w-10 h-10 rounded-lg bg-secondary border border-border flex items-center justify-center shrink-0">
                         <span className="text-foreground font-bold font-mono text-sm">
@@ -520,6 +541,8 @@ export default function Settings() {
           </SettingsPanel>
         </div>
       )}
+
+      <FontSwitcherModal open={fontModalOpen} onClose={() => setFontModalOpen(false)} />
     </div>
   );
 }

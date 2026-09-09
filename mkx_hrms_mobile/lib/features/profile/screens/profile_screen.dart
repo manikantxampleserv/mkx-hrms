@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/date_utils.dart';
 import '../../../core/utils/ui_helpers.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/status_badge.dart';
-import '../../auth/screens/login_screen.dart';
 import '../../auth/state/auth_provider.dart';
 
 /// Personal Employee Profile, Settings, Theme Mode, and Logout Screen
@@ -25,11 +25,8 @@ class ProfileScreen extends StatelessWidget {
     if (confirmed == true && context.mounted) {
       final auth = context.read<AuthProvider>();
       await auth.logout();
-      if (context.mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
-        );
+      if (context.mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     }
   }
@@ -75,7 +72,9 @@ class ProfileScreen extends StatelessWidget {
                   color: isDark ? AppColors.darkCard : AppColors.lightCard,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    color: isDark
+                        ? AppColors.darkBorder
+                        : AppColors.lightBorder,
                   ),
                 ),
                 child: Row(
@@ -174,7 +173,9 @@ class ProfileScreen extends StatelessWidget {
                   color: isDark ? AppColors.darkCard : AppColors.lightCard,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    color: isDark
+                        ? AppColors.darkBorder
+                        : AppColors.lightBorder,
                   ),
                 ),
                 child: Column(
@@ -234,7 +235,9 @@ class ProfileScreen extends StatelessWidget {
                   color: isDark ? AppColors.darkCard : AppColors.lightCard,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                    color: isDark
+                        ? AppColors.darkBorder
+                        : AppColors.lightBorder,
                   ),
                 ),
                 child: Column(
@@ -252,7 +255,9 @@ class ProfileScreen extends StatelessWidget {
                       'Choose between system, light, and dark zinc appearance.',
                       style: GoogleFonts.inter(
                         fontSize: 12,
-                        color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+                        color: isDark
+                            ? AppColors.darkMuted
+                            : AppColors.lightMuted,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -332,10 +337,7 @@ class ProfileScreen extends StatelessWidget {
           const Spacer(),
           Text(
             value,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
+            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -382,8 +384,8 @@ class ProfileScreen extends StatelessWidget {
                 size: 18,
                 color: isSelected
                     ? (isDark
-                        ? AppColors.darkPrimaryForeground
-                        : AppColors.lightPrimaryForeground)
+                          ? AppColors.darkPrimaryForeground
+                          : AppColors.lightPrimaryForeground)
                     : (isDark ? AppColors.darkMuted : AppColors.lightMuted),
               ),
               const SizedBox(height: 4),
@@ -394,8 +396,8 @@ class ProfileScreen extends StatelessWidget {
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   color: isSelected
                       ? (isDark
-                          ? AppColors.darkPrimaryForeground
-                          : AppColors.lightPrimaryForeground)
+                            ? AppColors.darkPrimaryForeground
+                            : AppColors.lightPrimaryForeground)
                       : (isDark ? AppColors.darkMuted : AppColors.lightMuted),
                 ),
               ),

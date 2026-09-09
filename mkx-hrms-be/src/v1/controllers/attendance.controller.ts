@@ -196,14 +196,14 @@ export const exportAttendance = async (
 
     const exportData = records.map((rec) => ({
       "Record ID": rec.record_id,
-      "Employee": rec.employee?.name || "Unknown",
-      "Department": rec.employee?.department || "General",
-      "Date": rec.date ? rec.date.toISOString().split("T")[0] : "",
+      Employee: rec.employee?.name || "Unknown",
+      Department: rec.employee?.department || "General",
+      Date: rec.date ? rec.date.toISOString().split("T")[0] : "",
       "Check In": rec.check_in || "--:--",
       "Check Out": rec.check_out || "--:--",
       "Work Hours": rec.work_hours || "--",
-      "Status": rec.status,
-      "Location": rec.location,
+      Status: rec.status,
+      Location: rec.location,
     }));
 
     const buffer = await generateExcelBuffer("Attendance", exportData);
@@ -212,10 +212,7 @@ export const exportAttendance = async (
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
-    res.setHeader(
-      "Content-Disposition",
-      'attachment; filename="Attendance_Export.xlsx"',
-    );
+    res.setHeader("Content-Disposition", 'attachment; filename="Attendance_Export.xlsx"');
 
     res.send(buffer);
   } catch (err) {
@@ -312,17 +309,11 @@ export const updateAttendanceStatus = async (
       effectiveCheckIn !== "--:--" &&
       effectiveCheckOut !== "--:--"
     ) {
-      const matchOut = effectiveCheckOut.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-      if (matchOut) {
-        let outHours = parseInt(matchOut[1], 10);
-        const outMinutes = parseInt(matchOut[2], 10);
-        const mod = matchOut[3]?.toUpperCase();
-        if (mod === "PM" && outHours < 12) outHours += 12;
-        if (mod === "AM" && outHours === 12) outHours = 0;
-        const outDate = new Date(existing.date);
-        outDate.setHours(outHours, outMinutes, 0, 0);
-        computedWorkHours = calculateElapsedWorkHours(effectiveCheckIn, outDate, existing.date);
-      }
+      computedWorkHours = calculateElapsedWorkHours(
+        effectiveCheckIn,
+        effectiveCheckOut,
+        existing.date,
+      );
     }
 
     const updated = await prisma.attendance.update({
@@ -358,35 +349,118 @@ interface PunchUpdatePayload {
 }
 
 /**
+ * Resolves a valid IANA timezone identifier from an input string, header, user preference, or fallback
+ *
+ * @param clientTz - Timezone string passed from client body, query, or headers
+ * @param userTz - Timezone string saved on user record
+ * @returns Standard IANA timezone string (defaults to Asia/Kolkata)
+ */
+export const resolveTimezone = (clientTz?: string | null, userTz?: string | null): string => {
+  const candidate = (clientTz || userTz || process.env.APP_TIMEZONE || "").trim();
+
+  if (!candidate) return "Asia/Kolkata";
+
+  if (
+    candidate === "IST" ||
+    candidate.startsWith("IST") ||
+    candidate === "+05:30" ||
+    candidate === "Asia/Calcutta"
+  ) {
+    return "Asia/Kolkata";
+  }
+  if (
+    candidate === "PT" ||
+    candidate.startsWith("PT") ||
+    candidate === "-08:00" ||
+    candidate === "-07:00"
+  ) {
+    return "America/Los_Angeles";
+  }
+  if (
+    candidate === "ET" ||
+    candidate.startsWith("ET") ||
+    candidate === "-05:00" ||
+    candidate === "-04:00"
+  ) {
+    return "America/New_York";
+  }
+  if (
+    candidate === "CET" ||
+    candidate.startsWith("CET") ||
+    candidate === "+01:00" ||
+    candidate === "+02:00"
+  ) {
+    return "Europe/Paris";
+  }
+  if (candidate === "UTC" || candidate.startsWith("UTC")) {
+    if (clientTz && (clientTz === "UTC" || clientTz.startsWith("UTC"))) {
+      return "UTC";
+    }
+    return "Asia/Kolkata";
+  }
+
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: candidate });
+    return candidate;
+  } catch {
+    return "Asia/Kolkata";
+  }
+};
+
+/**
  * Computes elapsed work hours and minutes between check-in time and check-out time
  *
  * @param checkInTimeStr - Check-in time string (e.g. "04:46 PM" or "09:00 AM")
- * @param checkOutDate - Check-out date timestamp instance
+ * @param checkOut - Check-out time string (e.g. "05:56 PM") or Date timestamp instance
  * @param recordDate - Base attendance date
+ * @param timeZone - Timezone string to use when checkOut is a Date
  * @returns Formatted duration string (e.g. "0h 02m" or "7h 45m")
  */
 export const calculateElapsedWorkHours = (
   checkInTimeStr: string,
-  checkOutDate: Date,
+  checkOut: string | Date,
   recordDate?: Date,
+  timeZone: string = "Asia/Kolkata",
 ): string => {
-  const match = checkInTimeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-  if (!match) return "0h 00m";
+  const matchIn = checkInTimeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!matchIn) return "0h 00m";
 
-  let hours = parseInt(match[1], 10);
-  const minutes = parseInt(match[2], 10);
-  const modifier = match[3]?.toUpperCase();
+  let inHours = parseInt(matchIn[1], 10);
+  const inMinutes = parseInt(matchIn[2], 10);
+  const inMod = matchIn[3]?.toUpperCase();
 
-  if (modifier === "PM" && hours < 12) hours += 12;
-  if (modifier === "AM" && hours === 12) hours = 0;
+  if (inMod === "PM" && inHours < 12) inHours += 12;
+  if (inMod === "AM" && inHours === 12) inHours = 0;
+  const inTotal = inHours * 60 + inMinutes;
 
-  const base = recordDate ? new Date(recordDate) : new Date(checkOutDate);
-  base.setHours(hours, minutes, 0, 0);
+  let outTotal: number;
 
-  const diffMs = Math.max(0, checkOutDate.getTime() - base.getTime());
-  const totalMinutes = Math.floor(diffMs / (1000 * 60));
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
+  if (typeof checkOut === "string") {
+    const matchOut = checkOut.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!matchOut) return "0h 00m";
+    let outHours = parseInt(matchOut[1], 10);
+    const outMinutes = parseInt(matchOut[2], 10);
+    const outMod = matchOut[3]?.toUpperCase();
+    if (outMod === "PM" && outHours < 12) outHours += 12;
+    if (outMod === "AM" && outHours === 12) outHours = 0;
+    outTotal = outHours * 60 + outMinutes;
+  } else {
+    const outTimeStr = checkOut.toLocaleTimeString("en-US", {
+      timeZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return calculateElapsedWorkHours(checkInTimeStr, outTimeStr, recordDate, timeZone);
+  }
+
+  let diffMinutes = outTotal - inTotal;
+  if (diffMinutes < 0) {
+    diffMinutes += 24 * 60;
+  }
+
+  const h = Math.floor(diffMinutes / 60);
+  const m = diffMinutes % 60;
   const mStr = m < 10 ? `0${m}` : `${m}`;
 
   return `${h}h ${mStr}m`;
@@ -457,21 +531,33 @@ export const punchAttendance = async (
       }
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const dateString = today.toISOString().split("T")[0];
-    const recordId = `ATT-${resolvedEmpId}-${dateString}`;
+    const headerTz = (req.headers["x-timezone"] as string | undefined) || undefined;
+    const bodyTz = (req.body.timezone as string | undefined) || undefined;
+
+    const emp = await prisma.employee.findUnique({
+      where: { id: resolvedEmpId },
+      include: { user: true },
+    });
+
+    const targetTz = resolveTimezone(bodyTz || headerTz, emp?.user?.timezone);
+
+    const now = new Date();
+    const localDateString =
+      (req.body.date as string | undefined) ||
+      now.toLocaleDateString("en-CA", { timeZone: targetTz });
+    const recordId = `ATT-${resolvedEmpId}-${localDateString}`;
 
     let existing = await prisma.attendance.findUnique({
       where: { record_id: recordId },
     });
 
     if (!existing) {
+      const recordDate = new Date(`${localDateString}T00:00:00.000Z`);
       existing = await prisma.attendance.create({
         data: {
           record_id: recordId,
           employee_id: resolvedEmpId,
-          date: today,
+          date: recordDate,
           status: "Absent",
           location: location || "Office",
           check_in: null,
@@ -481,16 +567,25 @@ export const punchAttendance = async (
       });
     }
 
-    const now = new Date();
-    const timeString = now.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const timeString =
+      (req.body.time as string | undefined) ||
+      now.toLocaleTimeString("en-US", {
+        timeZone: targetTz,
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
 
     const updatedData: PunchUpdatePayload = {};
 
     if (action === "check-in") {
-      const isLate = now.getHours() >= 10;
+      const matchTime = timeString.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+      let punchHour = matchTime ? parseInt(matchTime[1], 10) : 0;
+      const punchMod = matchTime?.[3]?.toUpperCase();
+      if (punchMod === "PM" && punchHour < 12) punchHour += 12;
+      if (punchMod === "AM" && punchHour === 12) punchHour = 0;
+      const isLate = punchHour >= 10;
+
       updatedData.check_in = timeString;
       updatedData.status = isLate ? "Late" : "Present";
       if (location) updatedData.location = location;
@@ -499,8 +594,9 @@ export const punchAttendance = async (
       if (existing.check_in) {
         updatedData.work_hours = calculateElapsedWorkHours(
           existing.check_in,
-          now,
+          timeString,
           existing.date,
+          targetTz,
         );
       }
     }
@@ -570,8 +666,23 @@ export const getMyAttendance = async (
       return;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const headerTz = (req.headers["x-timezone"] as string | undefined) || undefined;
+    const queryTz = (req.query.timezone as string | undefined) || undefined;
+    let userTz: string | undefined;
+
+    if (req.user?.id) {
+      const authUser = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { timezone: true },
+      });
+      userTz = authUser?.timezone || undefined;
+    }
+
+    const targetTz = resolveTimezone(queryTz || headerTz, userTz);
+
+    const todayDateStr =
+      (req.query.date as string | undefined) ||
+      new Date().toLocaleDateString("en-CA", { timeZone: targetTz });
 
     const records = await prisma.attendance.findMany({
       where: { employee_id: employeeId },
@@ -581,7 +692,9 @@ export const getMyAttendance = async (
     });
 
     const todayRecord = records.find(
-      (r) => r.date.toISOString().split("T")[0] === today.toISOString().split("T")[0],
+      (r) =>
+        r.date.toISOString().split("T")[0] === todayDateStr ||
+        r.record_id.endsWith(`-${todayDateStr}`),
     );
 
     const formattedHistory = records.map((item) => ({

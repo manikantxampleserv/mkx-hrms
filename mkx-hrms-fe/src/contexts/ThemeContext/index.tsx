@@ -1,5 +1,6 @@
 import { createTheme, ThemeProvider as MUIThemeProvider } from "@mui/material/styles";
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
+import { FontContext } from "../FontContext";
 import { type Theme, ThemeProviderContext } from "./useTheme";
 
 /**
@@ -71,8 +72,11 @@ export function ThemeProvider({
     },
   };
 
+  const fontContext = useContext(FontContext);
+  const activeFont = fontContext?.font || "Default";
+
   /**
-   * MUI Theme integration synced with current `isDark`
+   * MUI Theme integration synced with current `isDark` and `activeFont`
    */
   const muiTheme = useMemo(
     () =>
@@ -104,7 +108,10 @@ export function ThemeProvider({
           borderRadius: 5,
         },
         typography: {
-          fontFamily: '"Rosemary", "Inter", "Helvetica", "Arial", sans-serif',
+          fontFamily:
+            !activeFont || activeFont === "Default"
+              ? '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+              : `"${activeFont}", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`,
           button: {
             textTransform: "capitalize",
           },
@@ -227,7 +234,7 @@ export function ThemeProvider({
           },
         },
       }),
-    [isDark],
+    [isDark, activeFont],
   );
 
   return (

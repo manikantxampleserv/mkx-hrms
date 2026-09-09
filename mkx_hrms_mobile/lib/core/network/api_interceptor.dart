@@ -15,6 +15,14 @@ class ApiInterceptor extends Interceptor {
     }
     options.headers['Accept'] = 'application/json';
     options.headers['Content-Type'] = 'application/json';
+    final offset = DateTime.now().timeZoneOffset;
+    final sign = offset.isNegative ? '-' : '+';
+    final tzOffset =
+        '$sign${offset.inHours.abs().toString().padLeft(2, '0')}:${(offset.inMinutes.abs() % 60).toString().padLeft(2, '0')}';
+    options.headers['x-timezone'] = DateTime.now().timeZoneName.isNotEmpty
+        ? DateTime.now().timeZoneName
+        : 'Asia/Kolkata';
+    options.headers['x-timezone-offset'] = tzOffset;
 
     if (kDebugMode) {
       debugPrint('➡️ [DIO REQ] ${options.method} ${options.uri}');
@@ -28,7 +36,9 @@ class ApiInterceptor extends Interceptor {
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
     if (kDebugMode) {
-      debugPrint('✅ [DIO RES ${response.statusCode}] ${response.requestOptions.path}');
+      debugPrint(
+        '✅ [DIO RES ${response.statusCode}] ${response.requestOptions.path}',
+      );
     }
     return handler.next(response);
   }
@@ -36,7 +46,9 @@ class ApiInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (kDebugMode) {
-      debugPrint('❌ [DIO ERR ${err.response?.statusCode}] ${err.requestOptions.path}: ${err.message}');
+      debugPrint(
+        '❌ [DIO ERR ${err.response?.statusCode}] ${err.requestOptions.path}: ${err.message}',
+      );
     }
     return handler.next(err);
   }

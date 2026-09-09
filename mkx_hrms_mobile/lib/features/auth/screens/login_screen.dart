@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/network/dio_client.dart';
@@ -8,7 +9,6 @@ import '../../../core/utils/ui_helpers.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../state/auth_provider.dart';
-import '../../navigation/screens/main_shell_screen.dart';
 
 /// Employee Login Screen matching the MKX HRMS design system
 class LoginScreen extends StatefulWidget {
@@ -48,9 +48,11 @@ class _LoginScreenState extends State<LoginScreen> {
         'Welcome back, ${auth.currentUser?.name ?? "Employee"}!',
         isSuccess: true,
       );
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainShellScreen()),
-      );
+      // MainShellScreen is automatically rendered by Consumer<AuthProvider> in main.dart
+      // If a route was pushed on top of LoginScreen, clear it back to root
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     } else {
       UiHelpers.showSnackBar(
         context,
@@ -62,80 +64,220 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _showServerConfigModal() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final urlController = TextEditingController(
-      text: DioClient.instance.dio.options.baseUrl,
-    );
+    final currentUrl = DioClient.instance.dio.options.baseUrl;
+    final urlController = TextEditingController(text: currentUrl);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: isDark ? AppColors.darkCard : AppColors.lightCard,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 24,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Backend Server Connection',
-              style: GoogleFonts.inter(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-              ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final isLive = urlController.text == ApiEndpoints.liveBaseUrl;
+          final isEmulator = urlController.text == ApiEndpoints.emulatorBaseUrl;
+          final isLocal = urlController.text == ApiEndpoints.localBaseUrl;
+
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 24,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Customize the API endpoint URL for Android emulator (10.0.2.2:3000), physical device IP, or localhost.',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
-              ),
-            ),
-            const SizedBox(height: 16),
-            CustomTextField(
-              controller: urlController,
-              label: 'API Base URL',
-              hintText: 'http://localhost:3000/v1',
-            ),
-            const SizedBox(height: 16),
-            Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: CustomButton(
-                    text: 'Reset Default',
-                    variant: ButtonVariant.outline,
-                    onPressed: () {
-                      DioClient.instance.updateBaseUrl(ApiEndpoints.defaultBaseUrl);
-                      Navigator.of(ctx).pop();
-                      UiHelpers.showSnackBar(context, 'Reset to platform default');
-                    },
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Server Environment',
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              color: AppColors.success,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            isLive ? 'Live Cloud' : 'Local Dev',
+                            style: GoogleFonts.inter(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.success,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Select an active backend environment or enter a custom endpoint URL below:',
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CustomButton(
-                    text: 'Save',
-                    onPressed: () {
-                      if (urlController.text.trim().isNotEmpty) {
-                        DioClient.instance.updateBaseUrl(urlController.text.trim());
-                        Navigator.of(ctx).pop();
-                        UiHelpers.showSnackBar(context, 'Base URL updated', isSuccess: true);
-                      }
-                    },
-                  ),
+                const SizedBox(height: 16),
+
+                // Quick preset environment chips
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ChoiceChip(
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.cloud_done_rounded, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Render Live',
+                            style: GoogleFonts.inter(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      selected: isLive,
+                      selectedColor: isDark
+                          ? AppColors.darkPrimary.withValues(alpha: 0.2)
+                          : AppColors.lightPrimary.withValues(alpha: 0.1),
+                      onSelected: (selected) {
+                        if (selected) {
+                          setModalState(() {
+                            urlController.text = ApiEndpoints.liveBaseUrl;
+                          });
+                        }
+                      },
+                    ),
+                    ChoiceChip(
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.phone_android_rounded, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Android 10.0.2.2',
+                            style: GoogleFonts.inter(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      selected: isEmulator,
+                      selectedColor: isDark
+                          ? AppColors.darkPrimary.withValues(alpha: 0.2)
+                          : AppColors.lightPrimary.withValues(alpha: 0.1),
+                      onSelected: (selected) {
+                        if (selected) {
+                          setModalState(() {
+                            urlController.text = ApiEndpoints.emulatorBaseUrl;
+                          });
+                        }
+                      },
+                    ),
+                    ChoiceChip(
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.laptop_chromebook_rounded, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Localhost',
+                            style: GoogleFonts.inter(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      selected: isLocal,
+                      selectedColor: isDark
+                          ? AppColors.darkPrimary.withValues(alpha: 0.2)
+                          : AppColors.lightPrimary.withValues(alpha: 0.1),
+                      onSelected: (selected) {
+                        if (selected) {
+                          setModalState(() {
+                            urlController.text = ApiEndpoints.localBaseUrl;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+                CustomTextField(
+                  controller: urlController,
+                  label: 'API Base URL',
+                  hintText: 'https://...',
+                  onChanged: (_) => setModalState(() {}),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: CustomButton(
+                        text: 'Reset to Live',
+                        variant: ButtonVariant.outline,
+                        onPressed: () {
+                          DioClient.instance.updateBaseUrl(
+                            ApiEndpoints.liveBaseUrl,
+                          );
+                          setState(() {});
+                          Navigator.of(ctx).pop();
+                          UiHelpers.showSnackBar(
+                            context,
+                            'Reset to Render Live Backend',
+                            isSuccess: true,
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: CustomButton(
+                        text: 'Apply URL',
+                        onPressed: () {
+                          final trimmed = urlController.text.trim();
+                          if (trimmed.isNotEmpty) {
+                            DioClient.instance.updateBaseUrl(trimmed);
+                            setState(() {});
+                            Navigator.of(ctx).pop();
+                            UiHelpers.showSnackBar(
+                              context,
+                              'API endpoint switched to $trimmed',
+                              isSuccess: true,
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -164,16 +306,22 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: 58,
                         height: 58,
                         decoration: BoxDecoration(
-                          color: isDark ? AppColors.darkSecondary : AppColors.lightSecondary,
+                          color: isDark
+                              ? AppColors.darkSecondary
+                              : AppColors.lightSecondary,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                            color: isDark
+                                ? AppColors.darkBorder
+                                : AppColors.lightBorder,
                           ),
                         ),
                         child: Icon(
                           Icons.fingerprint_rounded,
                           size: 32,
-                          color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                          color: isDark
+                              ? AppColors.darkPrimary
+                              : AppColors.lightPrimary,
                         ),
                       ),
                     ),
@@ -185,7 +333,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
-                        color: isDark ? AppColors.darkForeground : AppColors.lightForeground,
+                        color: isDark
+                            ? AppColors.darkForeground
+                            : AppColors.lightForeground,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -194,7 +344,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       textAlign: TextAlign.center,
                       style: GoogleFonts.inter(
                         fontSize: 14,
-                        color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+                        color: isDark
+                            ? AppColors.darkMuted
+                            : AppColors.lightMuted,
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -203,10 +355,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: isDark ? AppColors.darkCard : AppColors.lightCard,
+                        color: isDark
+                            ? AppColors.darkCard
+                            : AppColors.lightCard,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                          color: isDark
+                              ? AppColors.darkBorder
+                              : AppColors.lightBorder,
                         ),
                       ),
                       child: Column(
@@ -225,7 +381,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             'Enter your corporate email and password to access your attendance, leaves, and salary slips.',
                             style: GoogleFonts.inter(
                               fontSize: 12,
-                              color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+                              color: isDark
+                                  ? AppColors.darkMuted
+                                  : AppColors.lightMuted,
                             ),
                           ),
                           const SizedBox(height: 20),
@@ -239,7 +397,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             prefixIcon: Icon(
                               Icons.alternate_email_rounded,
                               size: 18,
-                              color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+                              color: isDark
+                                  ? AppColors.darkMuted
+                                  : AppColors.lightMuted,
                             ),
                             validator: (val) {
                               if (val == null || val.trim().isEmpty) {
@@ -262,7 +422,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             prefixIcon: Icon(
                               Icons.lock_outline_rounded,
                               size: 18,
-                              color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+                              color: isDark
+                                  ? AppColors.darkMuted
+                                  : AppColors.lightMuted,
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -270,7 +432,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ? Icons.visibility_off_outlined
                                     : Icons.visibility_outlined,
                                 size: 18,
-                                color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+                                color: isDark
+                                    ? AppColors.darkMuted
+                                    : AppColors.lightMuted,
                               ),
                               onPressed: () {
                                 setState(() {
@@ -300,18 +464,64 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 20),
 
                     // Quick Demo Accounts & Server Settings
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        TextButton.icon(
-                          onPressed: _showServerConfigModal,
-                          icon: const Icon(Icons.settings_outlined, size: 15),
-                          label: Text(
-                            'Server Settings',
-                            style: GoogleFonts.inter(fontSize: 12),
+                    Center(
+                      child: InkWell(
+                        onTap: _showServerConfigModal,
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.darkCard
+                                : AppColors.lightCard,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.darkBorder
+                                  : AppColors.lightBorder,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: AppColors.success,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                DioClient.instance.dio.options.baseUrl.contains(
+                                      'render.com',
+                                    )
+                                    ? 'Server: Render Live'
+                                    : 'Server: Local Dev',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark
+                                      ? AppColors.darkForeground
+                                      : AppColors.lightForeground,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.tune_rounded,
+                                size: 14,
+                                color: isDark
+                                    ? AppColors.darkMuted
+                                    : AppColors.lightMuted,
+                              ),
+                            ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),

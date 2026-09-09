@@ -10,9 +10,9 @@ class DioClient {
     _dio = Dio(
       BaseOptions(
         baseUrl: ApiEndpoints.defaultBaseUrl,
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 15),
-        sendTimeout: const Duration(seconds: 15),
+        connectTimeout: const Duration(seconds: 180),
+        receiveTimeout: const Duration(seconds: 180),
+        sendTimeout: const Duration(seconds: 180),
       ),
     );
 

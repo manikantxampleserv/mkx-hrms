@@ -1,12 +1,15 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
-
 /// Centralized API URLs and endpoint definitions for MKX HRMS Backend
 class ApiEndpoints {
   ApiEndpoints._();
 
   /// Production Live Render backend base URL
   static const String liveBaseUrl = 'https://mkx-hrms-be.onrender.com/api/v1';
+
+  /// Local development URL for Android emulator
+  static const String emulatorBaseUrl = 'http://10.0.2.2:3000/api/v1';
+
+  /// Localhost URL for iOS simulator / web / desktop
+  static const String localBaseUrl = 'http://localhost:3000/api/v1';
 
   /// Resolves the default backend base URL
   /// Configured with live Render backend
