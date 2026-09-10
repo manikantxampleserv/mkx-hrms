@@ -364,75 +364,7 @@ Sent by MKX Technologies Pvt. Ltd. • 129, Street Number 13, Block A, New Ashok
 };
 
 /**
- * Dispatches an automated onboarding email via Resend HTTPS API (Port 443)
- *
- * @param options - Welcome email options
- * @returns Promise resolving to EmailSendResult indicating status
- */
-const sendViaResendHttps = async (
-  options: EmployeeWelcomeEmailOptions,
-): Promise<EmailSendResult> => {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    return { success: false, error: "RESEND_API_KEY is not configured" };
-  }
-
-  const fromName = process.env.SMTP_FROM_NAME || "MKX HRMS Workplace";
-  const fromEmail =
-    process.env.RESEND_FROM_EMAIL || process.env.SMTP_FROM_EMAIL || "noreply@mkx.monster";
-  const from = `${fromName} <${fromEmail}>`;
-
-  const payload = {
-    from,
-    to: [options.email],
-    subject: `Welcome to MKX HRMS - Your Account Credentials (${options.employeeId})`,
-    html: buildWelcomeEmailHtml(options),
-    text: buildWelcomeEmailPlainText(options),
-  };
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const result = (await response.json()) as {
-    id?: string;
-    message?: string;
-    name?: string;
-    statusCode?: number;
-  };
-
-  if (response.ok && result.id) {
-    logger.info(
-      `Welcome email dispatched via Resend HTTPS to ${options.email} (Message ID: ${result.id})`,
-    );
-    return {
-      success: true,
-      messageId: result.id,
-    };
-  }
-
-  if (result.statusCode === 403) {
-    logger.warn(
-      `Resend Sandbox Restriction: ${result.message} Please add and verify your domain at https://resend.com/domains to dispatch to all recipient addresses.`,
-    );
-  } else {
-    logger.warn(
-      `Resend API returned status ${response.status}: ${result.message || JSON.stringify(result)}`,
-    );
-  }
-  return {
-    success: false,
-    error: result,
-  };
-};
-
-/**
- * Dispatches an automated onboarding welcome email delivering portal credentials
+ * Dispatches an automated onboarding welcome email delivering portal credentials via Gmail SMTP
  *
  * @param options - Parameters for the welcome email
  * @returns Promise resolving with email dispatch status
@@ -441,17 +373,10 @@ export const sendEmployeeWelcomeEmail = async (
   options: EmployeeWelcomeEmailOptions,
 ): Promise<EmailSendResult> => {
   try {
-    if (process.env.RESEND_API_KEY) {
-      const resendResult = await sendViaResendHttps(options);
-      if (resendResult.success) {
-        return resendResult;
-      }
-      logger.warn("Resend HTTPS dispatch failed, attempting SMTP fallback...");
-    }
-
     const rawHost = process.env.SMTP_HOST || "smtp.gmail.com";
     const fromName = process.env.SMTP_FROM_NAME || "MKX HRMS Workplace";
-    const fromEmail = process.env.SMTP_FROM_EMAIL || "noreply@mkx.monster";
+    const fromEmail =
+      process.env.SMTP_FROM_EMAIL || process.env.SMTP_USERNAME || "mkx.webs@gmail.com";
 
     const mailOptions = {
       from: `"${fromName}" <${fromEmail}>`,
@@ -521,13 +446,6 @@ export const sendEmployeeWelcomeEmail = async (
  */
 export const verifySmtpConnection = async (): Promise<boolean> => {
   try {
-    if (process.env.RESEND_API_KEY) {
-      logger.success(
-        "Resend HTTPS email service (Port 443) is active and configured for live delivery",
-      );
-      return true;
-    }
-
     const rawHost = process.env.SMTP_HOST || "smtp.gmail.com";
     const ipv4List = await resolveIpv4Addresses(rawHost);
 
