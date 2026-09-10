@@ -89,6 +89,9 @@ const createTransporterForHost = (hostAddress: string, servername: string): Tran
     host: hostAddress,
     port,
     secure: isSecure,
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 10000,
     auth: {
       user,
       pass,
