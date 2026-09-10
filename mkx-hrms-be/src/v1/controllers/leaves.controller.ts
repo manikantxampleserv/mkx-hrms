@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from "express";
+import crypto from "node:crypto";
 import { prisma } from "../../libraries/prisma";
 import { generateExcelBuffer } from "../services/excel.service";
+import { sendLeaveApprovalEmail } from "../services/email.service";
+import { logger } from "../../utils/logger";
 
 /**
  * Controller to retrieve all leave requests with optional filtering
@@ -455,6 +458,10 @@ export const createLeave = async (
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     const leaveCode = `LV-${Date.now().toString().slice(-6)}-${randomSuffix}`;
 
+    const approvalToken = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
+
     const newLeave = await prisma.leave.create({
       data: {
         leave_code: leaveCode,
@@ -465,9 +472,32 @@ export const createLeave = async (
         days_count: daysCount,
         reason: reason || "Personal time off request",
         status: "Pending",
+        approval_token: approvalToken,
+        approval_token_expires: expiresAt,
       },
       include: { employee: true },
     });
+
+    if (newLeave.employee.manager_id) {
+      const manager = await prisma.employee.findUnique({
+        where: { id: newLeave.employee.manager_id },
+      });
+      if (manager && manager.email) {
+        sendLeaveApprovalEmail({
+          managerName: manager.name,
+          managerEmail: manager.email,
+          employeeName: newLeave.employee.name,
+          leaveType: newLeave.leave_type,
+          startDate: newLeave.start_date.toISOString().split("T")[0],
+          endDate: newLeave.end_date.toISOString().split("T")[0],
+          daysCount: newLeave.days_count,
+          reason: newLeave.reason,
+          approvalToken,
+        }).catch((err) => {
+          logger.error("Failed to send leave approval email to manager:", err);
+        });
+      }
+    }
 
     res.sendSuccess({
       message: "Leave application submitted successfully",
@@ -579,3 +609,123 @@ export const getMyLeaves = async (
     next(err);
   }
 };
+
+/**
+ * Controller to fetch leave details using a one-time approval token
+ *
+ * @param req - Express request with token param
+ * @param res - Express response
+ * @param next - Next middleware delegate
+ */
+export const getLeaveByApprovalToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const token = req.params.token as string;
+    if (!token) {
+      res.sendError({ statusCode: 400, message: "Token is required" });
+      return;
+    }
+
+    const leave = await prisma.leave.findFirst({
+      where: { approval_token: token },
+      include: { employee: true },
+    });
+
+    if (!leave) {
+      res.sendError({ statusCode: 404, message: "Invalid or expired token" });
+      return;
+    }
+
+    if (leave.status !== "Pending") {
+      res.sendError({ statusCode: 400, message: "This request has already been processed" });
+      return;
+    }
+
+    if (leave.approval_token_expires && new Date() > leave.approval_token_expires) {
+      res.sendError({ statusCode: 400, message: "Approval link has expired" });
+      return;
+    }
+
+    res.sendSuccess({
+      message: "Leave request found",
+      data: {
+        id: leave.leave_code,
+        employee_name: leave.employee.name,
+        leave_type: leave.leave_type,
+        start_date: leave.start_date.toISOString().split("T")[0],
+        end_date: leave.end_date.toISOString().split("T")[0],
+        days_count: leave.days_count,
+        reason: leave.reason,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Controller to process leave approval/rejection via one-time token
+ *
+ * @param req - Express request with token param and status body
+ * @param res - Express response
+ * @param next - Next middleware delegate
+ */
+export const processLeaveApproval = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const token = req.params.token as string;
+    const { status } = req.body;
+
+    if (!token) {
+      res.sendError({ statusCode: 400, message: "Token is required" });
+      return;
+    }
+
+    if (status !== "Approved" && status !== "Rejected") {
+      res.sendError({ statusCode: 400, message: "Invalid status action" });
+      return;
+    }
+
+    const leave = await prisma.leave.findFirst({
+      where: { approval_token: token },
+    });
+
+    if (!leave) {
+      res.sendError({ statusCode: 404, message: "Invalid or expired token" });
+      return;
+    }
+
+    if (leave.status !== "Pending") {
+      res.sendError({ statusCode: 400, message: "This request has already been processed" });
+      return;
+    }
+
+    if (leave.approval_token_expires && new Date() > leave.approval_token_expires) {
+      res.sendError({ statusCode: 400, message: "Approval link has expired" });
+      return;
+    }
+
+    const updated = await prisma.leave.update({
+      where: { id: leave.id },
+      data: {
+        status,
+        approval_token: null,
+        approval_token_expires: null,
+      },
+    });
+
+    res.sendSuccess({
+      message: `Leave request ${status.toLowerCase()} successfully`,
+      data: { status: updated.status },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+

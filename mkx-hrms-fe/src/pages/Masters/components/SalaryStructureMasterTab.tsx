@@ -337,10 +337,7 @@ export const SalaryStructureMasterTab: React.FC = () => {
         ))}
       </div>
 
-      {/* Subtitle description */}
-      <p className="text-sm text-muted-foreground">
-        Manage compensation templates, statutory deduction percentage splits, and tax regime rules
-      </p>
+
 
       {/* Action Toolbar matching Employee Section */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

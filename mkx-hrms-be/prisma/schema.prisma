@@ -70,6 +70,8 @@ model User {
   status                   String?                  @default("active") @db.VarChar(20)
   avatar                   String?                  @db.Text
   timezone                 String?                  @default("UTC (GMT+00:00)") @db.VarChar(100)
+  password_reset_token     String?                  @unique @db.VarChar(128)
+  password_reset_expires   DateTime?
   created_at               DateTime                 @default(now())
   updated_at               DateTime                 @updatedAt
 
@@ -94,6 +96,9 @@ model Employee {
   status         String        @default("Active") @db.VarChar(50)
   manager_id     Int?
   join_date      DateTime      @db.Date
+  birth_date     DateTime?     @db.Date
+  address        String?       @db.Text
+  phone          String?       @db.VarChar(50)
   avatar         String?       @db.Text
   user_id        Int?          @unique
   created_at     DateTime      @default(now())
@@ -143,9 +148,11 @@ model Leave {
   days_count  Int
   reason      String   @db.Text
   status      String   @default("Pending") @db.VarChar(50)
-  applied_on  DateTime @default(now()) @db.Date
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  applied_on             DateTime  @default(now()) @db.Date
+  approval_token         String?   @unique @db.VarChar(128)
+  approval_token_expires DateTime?
+  created_at             DateTime  @default(now())
+  updated_at             DateTime  @updatedAt
 
   employee    Employee @relation(fields: [employee_id], references: [id], onDelete: Cascade)
 

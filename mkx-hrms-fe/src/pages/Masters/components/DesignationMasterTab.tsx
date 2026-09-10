@@ -323,10 +323,7 @@ export const DesignationMasterTab: React.FC = () => {
         ))}
       </div>
 
-      {/* Subtitle description */}
-      <p className="text-sm text-muted-foreground">
-        Manage official workforce designations, hierarchy titles, and departmental linkages
-      </p>
+
 
       {/* Action Toolbar matching Employee Section */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

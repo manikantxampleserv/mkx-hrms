@@ -14,6 +14,10 @@ export interface SelectOption {
   disabled?: boolean;
   /** Optional flag indicating hidden state in menu */
   hidden?: boolean;
+  /** Optional sub-label or description to show below the main label */
+  sublabel?: string;
+  /** Optional avatar URL or initials to show next to the label */
+  avatar?: string;
 }
 
 /**
@@ -122,7 +126,7 @@ export function Select<TFormValues = Record<string, unknown>>({
    * in the options (e.g. while options are being fetched asynchronously), a hidden fallback
    * item is provided to prevent MUI Select from emitting out-of-range warnings.
    */
-  const effectiveOptions = useMemo(() => {
+  const effectiveOptions = useMemo<SelectOption[]>(() => {
     if (
       currentValue !== "" &&
       currentValue !== undefined &&
@@ -133,7 +137,7 @@ export function Select<TFormValues = Record<string, unknown>>({
         ...options,
         {
           label: String(currentValue),
-          value: currentValue,
+          value: currentValue as string | number,
           disabled: false,
           hidden: true,
         },
@@ -190,9 +194,27 @@ export function Select<TFormValues = Record<string, unknown>>({
           value={option.value}
           disabled={option.disabled}
           style={option.hidden ? { display: "none" } : undefined}
-          className="!text-sm !py-2 hover:!bg-secondary/80 focus:!bg-secondary !rounded-[5px] !mx-1 !my-0.5 transition-colors"
+          className="!text-sm hover:!bg-secondary/80 focus:!bg-secondary !rounded-[5px] !mx-1 !my-0.5 transition-colors flex items-center gap-3 !py-2"
         >
-          {option.label}
+          {option.avatar && (
+            <div className="w-8 h-8 rounded-[5px] bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden text-foreground">
+              {option.avatar.startsWith("http") || option.avatar.startsWith("data:") ? (
+                <img
+                  src={option.avatar}
+                  alt={option.label}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-xs font-semibold">{option.avatar}</span>
+              )}
+            </div>
+          )}
+          <div className="flex flex-col">
+            <span className="font-medium text-foreground">{option.label}</span>
+            {option.sublabel && (
+              <span className="text-xs text-muted-foreground">{option.sublabel}</span>
+            )}
+          </div>
         </MenuItem>
       ))}
     </TextField>

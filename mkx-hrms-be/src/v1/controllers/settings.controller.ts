@@ -69,13 +69,12 @@ export const getSettings = async (
 
     const settingsData = {
       profile: {
-        first_name: user?.first_name || "Alex",
-        last_name: user?.last_name || "Morgan",
-        email: user?.email || "alex.morgan@mkx.dev",
+        first_name: user?.first_name || "",
+        last_name: user?.last_name || "",
+        email: user?.email || "",
         role: user?.role?.name || user?.employee?.role_rel?.name || "Employee",
-        timezone: "Asia/Kolkata",
-        avatar:
-          user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+        timezone: user?.timezone || "Asia/Kolkata",
+        avatar: user?.avatar || null,
       },
       roles: rolesList,
       integrations: formattedIntegrations,

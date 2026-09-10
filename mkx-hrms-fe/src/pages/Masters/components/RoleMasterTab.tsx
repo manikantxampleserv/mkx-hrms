@@ -317,10 +317,7 @@ export const RoleMasterTab: React.FC = () => {
         ))}
       </div>
 
-      {/* Subtitle description */}
-      <p className="text-sm text-muted-foreground">
-        Manage system roles, granular permission matrices, and security access policies
-      </p>
+
 
       {/* Action Toolbar matching Employee Section */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

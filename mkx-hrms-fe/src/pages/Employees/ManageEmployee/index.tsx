@@ -30,6 +30,12 @@ export interface ManageEmployeeFormValues {
   manager_id: number | "" | null;
   /** Official company join date (YYYY-MM-DD) */
   join_date: string;
+  /** Date of birth (YYYY-MM-DD) */
+  birth_date?: string;
+  /** Residential address */
+  address?: string;
+  /** Contact phone number */
+  phone?: string;
   /** Optional profile picture base64 string */
   avatar?: string;
 }
@@ -45,13 +51,15 @@ export interface ManageEmployeeProps {
   /** Callback fired with the newly created or updated employee record */
   onSubmit: (employee: ManageEmployeeFormValues) => Promise<void> | void;
   /** Optional initial employee data when editing */
-  initialData?: (Partial<ManageEmployeeFormValues> & {
-    id?: string;
-    db_id?: number;
-    role?: string;
-    department?: string;
-    manager?: string;
-  }) | null;
+  initialData?:
+    | (Partial<ManageEmployeeFormValues> & {
+        id?: string;
+        db_id?: number;
+        role?: string;
+        department?: string;
+        manager?: string;
+      })
+    | null;
 }
 
 /**
@@ -73,8 +81,18 @@ const employeeValidationSchema = Yup.object({
     .typeError("Department selection is required")
     .required("Department selection is required"),
   status: Yup.string().oneOf(["Active", "Inactive"]).required("Employment status is required"),
-  manager_id: Yup.number().nullable().optional(),
+  manager_id: Yup.number()
+    .typeError("Reporting manager is required")
+    .required("Reporting manager is required"),
   join_date: Yup.string().required("Join date is required"),
+  birth_date: Yup.string().optional(),
+  address: Yup.string().trim().optional(),
+  phone: Yup.string()
+    .trim()
+    .matches(/^[0-9+\-\s()]*$/, "Phone number can only contain numbers, spaces, and + - ( )")
+    .min(8, "Phone number must be at least 8 characters")
+    .max(16, "Phone number cannot exceed 16 characters")
+    .optional(),
 });
 
 /**
@@ -88,6 +106,9 @@ const initialValues: ManageEmployeeFormValues = {
   status: "Active",
   manager_id: "",
   join_date: new Date().toISOString().split("T")[0],
+  birth_date: "",
+  address: "",
+  phone: "",
   avatar: "",
 };
 
@@ -160,8 +181,18 @@ export const ManageEmployee: React.FC<ManageEmployeeProps> = ({
     const employees = employeesResponse?.data || [];
     return employees
       .filter((emp) => !initialData?.db_id || emp.db_id !== initialData.db_id)
-      .map((emp) => ({ label: emp.name, value: emp.db_id || 0 }))
-      .filter((m) => m.value > 0);
+      .map((emp) => {
+        const initials =
+          `${emp.first_name?.charAt(0) || ""}${emp.last_name?.charAt(0) || ""}`.toUpperCase() ||
+          emp.name.charAt(0).toUpperCase();
+        return {
+          label: emp.name,
+          value: emp.db_id || 0,
+          sublabel: emp.email,
+          avatar: emp.avatar || initials,
+        };
+      })
+      .filter((m) => (m.value as number) > 0);
   }, [employeesResponse?.data, initialData?.db_id]);
 
   const initialRoleId = React.useMemo(() => {
@@ -207,6 +238,9 @@ export const ManageEmployee: React.FC<ManageEmployeeProps> = ({
           status: initialData.status || "Active",
           manager_id: initialManagerId,
           join_date: initialData.join_date || new Date().toISOString().split("T")[0],
+          birth_date: initialData.birth_date || "",
+          address: initialData.address || "",
+          phone: initialData.phone || "",
           avatar: initialData.avatar || "",
         }
       : {
@@ -248,7 +282,7 @@ export const ManageEmployee: React.FC<ManageEmployeeProps> = ({
           ? "Update the personal and organizational details for this team member."
           : "Fill in the personal and organizational details to onboard a new team member."
       }
-      width={600}
+      width={650}
       footer={
         <>
           <Button
@@ -330,6 +364,7 @@ export const ManageEmployee: React.FC<ManageEmployeeProps> = ({
             name="manager_id"
             label="Reporting Manager"
             options={managerOptions}
+            required
             formik={formik}
           />
 
@@ -340,11 +375,34 @@ export const ManageEmployee: React.FC<ManageEmployeeProps> = ({
           />
         </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <CustomDatePicker<ManageEmployeeFormValues>
+            name="birth_date"
+            label="Date of Birth"
+            formik={formik}
+          />
+
+          <Input<ManageEmployeeFormValues>
+            name="phone"
+            type="tel"
+            label="Phone Number"
+            placeholder="e.g. +1 234 567 8900"
+            formik={formik}
+          />
+        </div>
+
         <ActiveInactiveField<ManageEmployeeFormValues>
           name="status"
           label="Employment Status"
           formik={formik}
           required
+        />
+        <Input<ManageEmployeeFormValues>
+          type="textarea"
+          name="address"
+          label="Residential Address"
+          placeholder="e.g. 123 Main St, Springfield, IL 62701"
+          formik={formik}
         />
       </form>
     </AppDrawer>

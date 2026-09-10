@@ -14,6 +14,8 @@ export interface EmployeeWelcomeEmailOptions {
   department?: string | null;
   temporaryPassword: string;
   portalUrl?: string;
+  /** One-time set-password token to embed in the CTA button URL */
+  setPasswordToken?: string;
 }
 
 /**
@@ -35,11 +37,10 @@ export const generateTemporaryPassword = (length = 12): string => {
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
   const lower = "abcdefghijkmnpqrstuvwxyz";
   const numbers = "23456789";
-  const symbols = "@#%*!?";
-  const allChars = upper + lower + numbers + symbols;
+  const allChars = upper + lower + numbers;
 
-  let password = "Mkx@";
-  for (let i = password.length; i < length; i++) {
+  let password = "";
+  for (let i = 0; i < length; i++) {
     const randomIndex = Math.floor(Math.random() * allChars.length);
     password += allChars[randomIndex];
   }
@@ -124,8 +125,11 @@ const getMailTransporter = async (): Promise<Transporter> => {
  * @returns Fully formatted HTML string
  */
 export const buildWelcomeEmailHtml = (options: EmployeeWelcomeEmailOptions): string => {
-  const portalUrl =
+  const baseUrl =
     options.portalUrl || process.env.APP_PORTAL_URL || "http://localhost:5174/login";
+  const portalUrl = options.setPasswordToken
+    ? `${baseUrl.replace(/\/login$/, "")}/set-password?token=${options.setPasswordToken}`
+    : baseUrl;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -176,8 +180,7 @@ export const buildWelcomeEmailHtml = (options: EmployeeWelcomeEmailOptions): str
       text-align: center;
       margin-bottom: 26px;
     }
-    .credential-row { padding: 10px 0; border-bottom: 1px dashed #e2e8f0; }
-    .credential-row:last-child { border-bottom: none; }
+    .credential-row { padding: 5px 0; }
     .credential-label { color: #718096; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
     .credential-value { color: #2d3748; font-size: 16px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-weight: 600; }
     
@@ -295,13 +298,8 @@ export const buildWelcomeEmailHtml = (options: EmployeeWelcomeEmailOptions): str
             </p>
             
             <div class="credentials-box" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 16px; text-align: center; margin-bottom: 26px;">
-              <div class="credential-row" style="padding: 10px 0; border-bottom: 1px dashed #e2e8f0;">
-                <div class="credential-label" style="color: #718096; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Login Email</div>
-                <div class="credential-value" style="color: #2d3748; font-size: 15px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-weight: 600;">${options.email}</div>
-              </div>
               <div class="credential-row" style="padding: 10px 0;">
-                <div class="credential-label" style="color: #718096; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Temporary Password</div>
-                <div class="credential-value" style="color: #0f172a; font-size: 20px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-weight: 700; letter-spacing: 2px;">${options.temporaryPassword}</div>
+                <div class="credential-value" style="color: #0f172a; font-size: 20px; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-weight: 700;">${options.temporaryPassword}</div>
               </div>
             </div>
             
@@ -343,15 +341,17 @@ export const buildWelcomeEmailHtml = (options: EmployeeWelcomeEmailOptions): str
  * @returns Plain text representation
  */
 export const buildWelcomeEmailPlainText = (options: EmployeeWelcomeEmailOptions): string => {
-  const portalUrl =
+  const baseUrl =
     options.portalUrl || process.env.APP_PORTAL_URL || "http://localhost:5174/login";
+  const portalUrl = options.setPasswordToken
+    ? `${baseUrl.replace(/\/login$/, "")}/set-password?token=${options.setPasswordToken}`
+    : baseUrl;
   return `Welcome to Your Dashboard!
 
 Hi ${options.name},
 
 Your workspace is officially set up and ready to go. We've provisioned a secure account profile using the temporary credentials detailed below:
 
-Login Email: ${options.email}
 Temporary Password: ${options.temporaryPassword}
 
 Confirm & Set Password:
@@ -484,3 +484,167 @@ export const verifySmtpConnection = async (): Promise<boolean> => {
     return false;
   }
 };
+
+/**
+ * Configuration payload required to send a leave approval email to a manager
+ */
+export interface LeaveApprovalEmailOptions {
+  managerName: string;
+  managerEmail: string;
+  employeeName: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  daysCount: number;
+  reason: string;
+  approvalToken: string;
+  portalUrl?: string;
+}
+
+export const buildLeaveApprovalEmailHtml = (options: LeaveApprovalEmailOptions): string => {
+  const baseUrl = options.portalUrl || process.env.APP_PORTAL_URL || "http://localhost:5174/login";
+  const portalUrl = `${baseUrl.replace(/\/login$/, "")}/leave-approval/${options.approvalToken}`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leave Request Approval</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #f6f9fc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+    table { border-collapse: collapse; width: 100%; }
+    .wrapper { background-color: #f6f9fc; padding: 40px 20px; }
+    .container { max-width: 580px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); overflow: hidden; }
+    .header { padding: 40px 40px 20px 40px; text-align: center; }
+    .content { padding: 0 40px 30px 40px; }
+    .footer { background-color: #fdfdfd; border-top: 1px solid #edf2f7; padding: 30px 40px; text-align: center; }
+    h1 { color: #1a202c; font-size: 26px; font-weight: 700; margin: 0 0 16px 0; line-height: 1.3; }
+    p { color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 24px 0; }
+    .credentials-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; text-align: left; margin-bottom: 26px; }
+    .credential-row { padding: 5px 0; }
+    .credential-label { color: #718096; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .credential-value { color: #2d3748; font-size: 16px; font-weight: 600; }
+    .btn-container { text-align: center; margin: 28px 0; }
+    .btn { background-color: #4f46e5; color: #ffffff !important; display: inline-block; padding: 14px 32px; font-size: 16px; font-weight: 600; text-decoration: none; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2); }
+    .footer-text { color: #a0aec0; font-size: 13px; line-height: 1.5; margin: 0; }
+  </style>
+</head>
+<body>
+<table role="presentation" class="wrapper">
+  <tr>
+    <td align="center">
+      <table role="presentation" class="container">
+        <tr>
+          <td class="header">
+            <h1>Leave Request Approval</h1>
+          </td>
+        </tr>
+        <tr>
+          <td class="content">
+            <p>Hi <strong>${options.managerName}</strong>,</p>
+            <p><strong>${options.employeeName}</strong> has requested time off. Please review the details below:</p>
+            
+            <div class="credentials-box">
+              <div class="credential-row">
+                <div class="credential-label">Leave Type</div>
+                <div class="credential-value">${options.leaveType}</div>
+              </div>
+              <div class="credential-row">
+                <div class="credential-label">Duration</div>
+                <div class="credential-value">${options.startDate} to ${options.endDate} (${options.daysCount} days)</div>
+              </div>
+              <div class="credential-row">
+                <div class="credential-label">Reason</div>
+                <div class="credential-value">${options.reason}</div>
+              </div>
+            </div>
+            
+            <div class="btn-container">
+              <a href="${portalUrl}" class="btn" target="_blank">Review Request</a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td class="footer">
+            <p class="footer-text">Sent by <strong>MKX Technologies Pvt. Ltd.</strong></p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+};
+
+export const buildLeaveApprovalEmailPlainText = (options: LeaveApprovalEmailOptions): string => {
+  const baseUrl = options.portalUrl || process.env.APP_PORTAL_URL || "http://localhost:5174/login";
+  const portalUrl = `${baseUrl.replace(/\/login$/, "")}/leave-approval/${options.approvalToken}`;
+
+  return `Leave Request Approval
+
+Hi ${options.managerName},
+
+${options.employeeName} has requested time off. Please review the details below:
+
+Leave Type: ${options.leaveType}
+Duration: ${options.startDate} to ${options.endDate} (${options.daysCount} days)
+Reason: ${options.reason}
+
+Review Request:
+${portalUrl}
+
+Sent by MKX Technologies Pvt. Ltd.
+`;
+};
+
+export const sendLeaveApprovalEmail = async (options: LeaveApprovalEmailOptions): Promise<EmailSendResult> => {
+  try {
+    const rawHost = process.env.SMTP_HOST || "smtp.gmail.com";
+    const fromName = process.env.SMTP_FROM_NAME || "MKX HRMS Workplace";
+    const fromEmail = process.env.SMTP_FROM_EMAIL || process.env.SMTP_USERNAME || "mkx.webs@gmail.com";
+
+    const mailOptions = {
+      from: `"${fromName}" <${fromEmail}>`,
+      to: options.managerEmail,
+      subject: `Leave Approval Required: ${options.employeeName}`,
+      text: buildLeaveApprovalEmailPlainText(options),
+      html: buildLeaveApprovalEmailHtml(options),
+    };
+
+    if (transporterInstance) {
+      try {
+        const info = await transporterInstance.sendMail(mailOptions);
+        logger.info(`Leave approval email dispatched to ${options.managerEmail} (Message ID: ${info.messageId})`);
+        return { success: true, messageId: info.messageId };
+      } catch (cachedErr) {
+        logger.warn(`Cached SMTP transporter failed, attempting re-resolution: ${String(cachedErr)}`);
+        transporterInstance = null;
+      }
+    }
+
+    const ipv4List = await resolveIpv4Addresses(rawHost);
+    let lastError: unknown = null;
+
+    for (const hostAddress of ipv4List) {
+      try {
+        const transporter = createTransporterForHost(hostAddress, rawHost);
+        const info = await transporter.sendMail(mailOptions);
+        transporterInstance = transporter;
+        logger.info(`Leave approval email dispatched to ${options.managerEmail} (Message ID: ${info.messageId}) [via IPv4: ${hostAddress}]`);
+        return { success: true, messageId: info.messageId };
+      } catch (err) {
+        lastError = err;
+        logger.warn(`Failed sending leave approval email via [${hostAddress}], checking alternative address...`);
+      }
+    }
+
+    logger.error(`Failed to send leave approval email to ${options.managerEmail}:`, lastError);
+    return { success: false, error: lastError };
+  } catch (error) {
+    logger.error(`Failed to send leave approval email to ${options.managerEmail}:`, error);
+    return { success: false, error };
+  }
+};
+

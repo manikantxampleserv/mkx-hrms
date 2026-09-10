@@ -16,6 +16,9 @@ export interface Employee {
   department?: string;
   manager_name?: string | null;
   join_date: Date;
+  birth_date: Date | null;
+  address: string | null;
+  phone: string | null;
   avatar: string | null;
   user_id: number | null;
   created_at: Date;
@@ -39,6 +42,9 @@ export interface CreateEmployeeInput {
   status?: "Active" | "Inactive";
   manager_name?: string | null;
   join_date: Date | string;
+  birth_date?: Date | string | null;
+  address?: string | null;
+  phone?: string | null;
   avatar?: string | null;
   timezone?: string;
 }

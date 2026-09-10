@@ -7,9 +7,14 @@ import {
   getLeaveFilters,
   createLeave,
   getMyLeaves,
+  getLeaveByApprovalToken,
+  processLeaveApproval,
 } from "../controllers/leaves.controller";
 
 const router = Router();
+
+router.get("/approval/:token", getLeaveByApprovalToken);
+router.post("/approval/:token", processLeaveApproval);
 
 router.get("/", getLeaves);
 router.get("/my", getMyLeaves);

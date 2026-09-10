@@ -335,10 +335,7 @@ export const LeaveTypeMasterTab: React.FC = () => {
         ))}
       </div>
 
-      {/* Subtitle description */}
-      <p className="text-sm text-muted-foreground">
-        Configure workforce leave types, annual allocation balances, and paid compensation guidelines
-      </p>
+
 
       {/* Action Toolbar matching Employee Section */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../../libraries/prisma";
-import { comparePassword, generateToken, verifyToken } from "../services/auth.service";
+import { comparePassword, generateToken, hashPassword, verifyToken } from "../services/auth.service";
 
 /**
  * Controller to handle user login and JWT token issuance
@@ -219,6 +219,107 @@ export const getMe = async (req: Request, res: Response, next: NextFunction): Pr
       message: "Profile retrieved successfully",
       data: userProfile,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Validates a one-time set-password token from the welcome email
+ *
+ * @param req - Express request with `token` in query string
+ * @param res - Express response
+ * @param next - Next middleware delegate
+ */
+export const verifySetPasswordToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const token = req.query.token as string;
+
+    if (!token) {
+      res.sendError({ statusCode: 400, message: "Token is required" });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { password_reset_token: token },
+      select: { id: true, first_name: true, password_reset_expires: true },
+    });
+
+    if (!user || !user.password_reset_expires || user.password_reset_expires < new Date()) {
+      res.sendError({
+        statusCode: 400,
+        message: "This link has expired or is invalid. Please contact HR for a new invitation.",
+      });
+      return;
+    }
+
+    res.sendSuccess({
+      message: "Token is valid",
+      data: { firstName: user.first_name },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Consumes a one-time set-password token and updates the user's password
+ *
+ * @param req - Express request with `token`, `password`, and `confirmPassword` in body
+ * @param res - Express response
+ * @param next - Next middleware delegate
+ */
+export const setPasswordWithToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const { token, password, confirmPassword } = req.body;
+
+    if (!token || !password || !confirmPassword) {
+      res.sendError({ statusCode: 400, message: "Token, password, and confirmPassword are required" });
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      res.sendError({ statusCode: 400, message: "Passwords do not match" });
+      return;
+    }
+
+    if (password.length < 8) {
+      res.sendError({ statusCode: 400, message: "Password must be at least 8 characters" });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { password_reset_token: token },
+    });
+
+    if (!user || !user.password_reset_expires || user.password_reset_expires < new Date()) {
+      res.sendError({
+        statusCode: 400,
+        message: "This link has expired or is invalid. Please contact HR for a new invitation.",
+      });
+      return;
+    }
+
+    const hashedPassword = await hashPassword(password);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password_hash: hashedPassword,
+        password_reset_token: null,
+        password_reset_expires: null,
+      },
+    });
+
+    res.sendSuccess({ message: "Password set successfully. You can now log in." });
   } catch (err) {
     next(err);
   }

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { Employee, User, Candidate } from "@prisma/client";
 import { prisma } from "../../libraries/prisma";
 import { CreateEmployeeInput } from "../../types/employee.types";
@@ -11,6 +12,8 @@ export interface ProvisionedEmployeeResult {
   employee: Employee;
   user: User;
   temporaryPassword: string;
+  /** One-time set-password token to embed in the welcome email URL */
+  setPasswordToken: string;
 }
 
 /**
@@ -88,6 +91,8 @@ export const createEmployeeWithUser = async (
 
   const temporaryPassword = generateTemporaryPassword();
   const hashedPassword = await hashPassword(temporaryPassword);
+  const setPasswordToken = crypto.randomBytes(48).toString("hex");
+  const setPasswordExpires = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
@@ -101,6 +106,8 @@ export const createEmployeeWithUser = async (
         role_id: input.role_id ?? null,
         status: (input.status ?? "Active").toLowerCase(),
         timezone: input.timezone ?? "UTC (GMT+00:00)",
+        password_reset_token: setPasswordToken,
+        password_reset_expires: setPasswordExpires,
         notification_preferences: {
           create: DEFAULT_NOTIFICATION_PREFERENCES.map((pref) => ({
             preference_key: pref.preference_key,
@@ -133,7 +140,7 @@ export const createEmployeeWithUser = async (
       },
     });
 
-    return { employee, user, temporaryPassword };
+    return { employee, user, temporaryPassword, setPasswordToken };
   });
 };
 

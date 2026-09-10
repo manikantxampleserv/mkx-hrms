@@ -10,14 +10,7 @@ import {
   People,
   Search,
 } from "@mui/icons-material";
-import {
-  Button,
-  Chip,
-  IconButton,
-  InputAdornment,
-  InputBase,
-  MenuItem,
-} from "@mui/material";
+import { Button, Chip, IconButton, InputAdornment, InputBase, MenuItem } from "@mui/material";
 import { ArrowMenu } from "shared/ArrowMenu";
 import { CustomDialog } from "shared/CustomDialog";
 import { DataTable, type ColumnDef } from "shared/DataTable";
@@ -55,11 +48,7 @@ interface DepartmentRowActionsProps {
  * @param props - Component props
  * @returns Rendered row action menu
  */
-const DepartmentRowActions: React.FC<DepartmentRowActionsProps> = ({
-  row,
-  onEdit,
-  onDelete,
-}) => {
+const DepartmentRowActions: React.FC<DepartmentRowActionsProps> = ({ row, onEdit, onDelete }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   return (
@@ -315,11 +304,6 @@ export const DepartmentMasterTab: React.FC = () => {
           />
         ))}
       </div>
-
-      {/* Subtitle description */}
-      <p className="text-sm text-muted-foreground">
-        Manage company departments, organizational units, and linked workforce assignments
-      </p>
 
       {/* Action Toolbar matching Employee Section */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

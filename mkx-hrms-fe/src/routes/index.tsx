@@ -4,6 +4,8 @@ import { Layout } from "layout/Layout";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { useAuth } from "contexts/AuthContext";
 import Login from "pages/Login";
+import SetPassword from "pages/SetPassword";
+import LeaveApproval from "pages/LeaveApproval";
 import Dashboard from "pages/Dashboard";
 import Employees from "pages/Employees";
 import Attendance from "pages/Attendance";
@@ -124,6 +126,12 @@ export function AppRoutes() {
           </PublicRoute>
         }
       />
+
+      {/* Public Set Password Route (one-time email link) */}
+      <Route path="/set-password" element={<SetPassword />} />
+
+      {/* Public Leave Approval Route */}
+      <Route path="/leave-approval/:token" element={<LeaveApproval />} />
 
       {/* Protected HRMS Application Views */}
       <Route element={<ProtectedRoute />}>

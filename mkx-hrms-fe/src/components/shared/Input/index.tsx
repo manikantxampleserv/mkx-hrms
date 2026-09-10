@@ -106,6 +106,9 @@ export function Input<TFormValues = Record<string, unknown>>({
     if (type === "password") {
       return showPassword ? "text" : "password";
     }
+    if (type === "textarea") {
+      return undefined; // textarea doesn't use the type attribute
+    }
     return type;
   }, [type, showPassword]);
 
@@ -117,6 +120,8 @@ export function Input<TFormValues = Record<string, unknown>>({
       id={name}
       label={label}
       type={effectiveType}
+      multiline={type === "textarea"}
+      minRows={type === "textarea" ? 3 : undefined}
       value={currentValue}
       onChange={handleChange}
       onBlur={formik?.handleBlur}

@@ -20,6 +20,9 @@ export interface Employee {
   manager: string;
   manager_id?: number | null;
   join_date: string;
+  birth_date?: string | null;
+  address?: string | null;
+  phone?: string | null;
   avatar?: string;
 }
 

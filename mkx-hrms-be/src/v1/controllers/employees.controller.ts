@@ -118,6 +118,9 @@ export const getEmployees = async (
       manager: emp.manager?.name || "None",
       manager_id: emp.manager_id,
       join_date: emp.join_date.toISOString().split("T")[0],
+      birth_date: emp.birth_date ? emp.birth_date.toISOString().split("T")[0] : null,
+      address: emp.address,
+      phone: emp.phone,
       avatar: emp.avatar || undefined,
     }));
 
@@ -281,6 +284,7 @@ export const createEmployee = async (
         role: resolvedRole,
         department: resolvedDept,
         temporaryPassword: created.temporaryPassword,
+        setPasswordToken: created.setPasswordToken,
       }).catch((emailError: unknown) => {
         logger.error("Failed to send welcome email for created employee:", emailError);
       });
@@ -310,7 +314,7 @@ export const updateEmployee = async (
 ): Promise<void> => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const { name, email, role, department, status, manager, join_date, avatar } = req.body;
+    const { name, email, role, department, status, manager, join_date, birth_date, address, phone, avatar } = req.body;
 
     const existing = await prisma.employee.findFirst({
       where: {
@@ -368,6 +372,9 @@ export const updateEmployee = async (
           status: status ?? existing.status,
           manager_id: manager_id !== undefined ? manager_id : existing.manager_id,
           join_date: join_date ? new Date(join_date) : existing.join_date,
+          birth_date: birth_date ? new Date(birth_date) : birth_date === null ? null : existing.birth_date,
+          address: address !== undefined ? address : existing.address,
+          phone: phone !== undefined ? phone : existing.phone,
           avatar: avatar !== undefined ? avatar : existing.avatar,
         },
         include: {
