@@ -150,31 +150,33 @@ const seedSingleAdminUser = async (roleId: number, departmentId: number): Promis
     });
   }
 
-  console.log(`✅ Single user provisioned with DB ID: ${adminUser.id} (${adminUser.email})`);
-  console.log(`✅ Linked employee record created with DB ID: ${adminEmployee.id} (${adminEmployee.employee_id})`);
+  console.log(`Single user provisioned with DB ID: ${adminUser.id} (${adminUser.email})`);
+  console.log(
+    `Linked employee record created with DB ID: ${adminEmployee.id} (${adminEmployee.employee_id})`,
+  );
 };
 
 /**
  * Main execution handler to reset the database and establish the single user
  */
 const run = async (): Promise<void> => {
-  console.log("⚠️ Clearing all data from database...");
+  console.log("Clearing all data from database...");
   await clearDatabase();
-  console.log("🧹 Database cleared and autoincrement sequences restarted to 1.");
+  console.log("Database cleared and autoincrement sequences restarted to 1.");
 
-  console.log("⚙️ Setting up foundational roles, permissions, and department...");
+  console.log("Setting up foundational roles, permissions, and department...");
   const roleMap = await seedCoreRolesAndPermissions();
   const departmentId = await seedInitialDepartment();
 
-  console.log("👤 Creating single administrator account...");
+  console.log("Creating single administrator account...");
   await seedSingleAdminUser(roleMap["Admin"], departmentId);
 
-  console.log("🎉 Database reset completed successfully!");
+  console.log("Database reset completed successfully!");
 };
 
 run()
   .catch((err: unknown) => {
-    console.error("❌ Error resetting database:", err);
+    console.error("Error resetting database:", err);
     process.exit(1);
   })
   .finally(async () => {
