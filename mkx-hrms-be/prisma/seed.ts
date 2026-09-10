@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { prisma } from "../src/libraries/prisma";
 import { DEFAULT_NOTIFICATION_PREFERENCES } from "../src/v1/services/employee.service";
+import { hashPassword } from "../src/v1/services/auth.service";
 
 /**
  * Seed roles and system permissions
@@ -104,6 +105,7 @@ const seedEmployeesAndUsers = async (
   roleMap: Record<string, number>,
   deptMap: Record<string, number>,
 ): Promise<Record<string, number>> => {
+  const defaultPasswordHash = await hashPassword("Admin@123");
   const employeesData = [
     {
       employee_id: "EMP-001",
@@ -244,7 +246,7 @@ const seedEmployeesAndUsers = async (
         status: emp.status.toLowerCase(),
         timezone: "UTC (GMT+00:00)",
         role_id: roleId,
-        password_hash: "$2a$10$e8w6a2180K6Kmsd.RdfgEOi3zF68x.6p5tq5dK20uDquB.PZqU6O6",
+        password_hash: defaultPasswordHash,
         notification_preferences: {
           create: DEFAULT_NOTIFICATION_PREFERENCES.map((pref) => ({
             preference_key: pref.preference_key,
@@ -264,12 +266,9 @@ const seedEmployeesAndUsers = async (
         first_name: emp.first_name,
         last_name: emp.last_name,
         email: emp.email,
-        role: emp.role,
         role_id: roleId,
-        department: emp.department,
         department_id: departmentId,
         status: emp.status,
-        manager_name: emp.manager_name,
         join_date: emp.join_date,
         avatar: emp.avatar,
         user_id: user.id,
@@ -280,12 +279,9 @@ const seedEmployeesAndUsers = async (
         first_name: emp.first_name,
         last_name: emp.last_name,
         email: emp.email,
-        role: emp.role,
         role_id: roleId,
-        department: emp.department,
         department_id: departmentId,
         status: emp.status,
-        manager_name: emp.manager_name,
         join_date: emp.join_date,
         avatar: emp.avatar,
         user_id: user.id,

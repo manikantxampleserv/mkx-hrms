@@ -227,12 +227,19 @@ export const onboardCandidate = async (
     const result = await onboardCandidateToEmployee(candidate.id, req.body);
 
     if (result.temporaryPassword && result.employee.email) {
+      const resolvedRole = result.employee.role_id
+        ? (await prisma.role.findUnique({ where: { id: result.employee.role_id } }))?.name || "Employee"
+        : candidate.position || "Employee";
+      const resolvedDept = result.employee.department_id
+        ? (await prisma.department.findUnique({ where: { id: result.employee.department_id } }))?.name || "General"
+        : candidate.department || "General";
+
       sendEmployeeWelcomeEmail({
         name: result.employee.name,
         email: result.employee.email,
         employeeId: result.employee.employee_id,
-        role: result.employee.role,
-        department: result.employee.department,
+        role: resolvedRole,
+        department: resolvedDept,
         temporaryPassword: result.temporaryPassword,
       }).catch((emailError: unknown) => {
         logger.error("Failed to send welcome email for onboarded candidate:", emailError);
@@ -311,6 +318,18 @@ export const getRecruitmentFilters = async (
       select: { name: true },
     });
 
+    const dbRoles = await prisma.role.findMany({
+      where: { status: "Active" },
+      orderBy: { name: "asc" },
+      select: { name: true },
+    });
+
+    const dbDesignations = await prisma.designation.findMany({
+      where: { status: "Active" },
+      orderBy: { title: "asc" },
+      select: { title: true },
+    });
+
     const dbCandidates = await prisma.candidate.findMany({
       select: {
         position: true,
@@ -320,6 +339,8 @@ export const getRecruitmentFilters = async (
 
     const departmentsSet = new Set<string>(dbDepartments.map((d) => d.name));
     const positionsSet = new Set<string>();
+    dbRoles.forEach((r) => positionsSet.add(r.name));
+    dbDesignations.forEach((d) => positionsSet.add(d.title));
 
     dbCandidates.forEach((item) => {
       if (item.department) departmentsSet.add(item.department);

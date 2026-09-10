@@ -37,21 +37,9 @@ interface DemoCredential {
 const DEMO_ACCOUNTS: DemoCredential[] = [
   {
     label: "Admin",
-    role: "Leadership / VP",
-    email: "david@mkx.com",
+    role: "System Administrator",
+    email: "admin@mkx.monster",
     color: "bg-[#ad87ed]/10 text-[#ad87ed] border-[#ad87ed]/30 hover:bg-[#ad87ed]/20",
-  },
-  {
-    label: "Manager",
-    role: "Product Lead",
-    email: "mike.j@mkx.com",
-    color: "bg-[#00b1d8]/10 text-[#00b1d8] border-[#00b1d8]/30 hover:bg-[#00b1d8]/20",
-  },
-  {
-    label: "Employee",
-    role: "Senior Engineer",
-    email: "sarah.c@mkx.com",
-    color: "bg-[#45ba50]/10 text-[#45ba50] border-[#45ba50]/30 hover:bg-[#45ba50]/20",
   },
 ];
 
@@ -61,8 +49,8 @@ const DEMO_ACCOUNTS: DemoCredential[] = [
  * @returns Rendered Login page
  */
 export default function Login() {
-  const [email, setEmail] = useState("david@mkx.com");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -109,7 +97,7 @@ export default function Login() {
    */
   const handleSelectDemo = (demoEmail: string) => {
     setEmail(demoEmail);
-    setPassword("password123");
+    setPassword("admin@123");
     toast.success(`Demo credentials loaded for ${demoEmail}`);
   };
 
@@ -188,7 +176,7 @@ export default function Login() {
 
           <div className="pt-8 border-t border-border/60">
             <p className="text-xs text-muted-foreground">
-              © {new Date().getFullYear()} MKX Technologies Inc. All rights reserved.
+              © {new Date().getFullYear()} MKX Technologies Pvt. Ltd. All rights reserved.
             </p>
           </div>
         </FadeUpItem>
@@ -219,16 +207,16 @@ export default function Login() {
                 </span>
                 <span className="text-[10px] text-muted-foreground">Click to fill</span>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 {DEMO_ACCOUNTS.map((demo) => (
                   <button
                     key={demo.label}
                     type="button"
                     onClick={() => handleSelectDemo(demo.email)}
-                    className={`px-2 py-1.5 rounded-[5px] border text-xs font-medium text-center transition-all ${demo.color}`}
+                    className={`px-3 py-2 rounded-[5px] border text-xs font-medium text-center transition-all ${demo.color}`}
                   >
                     <span className="block font-semibold">{demo.label}</span>
-                    <span className="block text-[9px] opacity-80 truncate">{demo.role}</span>
+                    <span className="block text-[10px] opacity-80 truncate">{demo.role} ({demo.email})</span>
                   </button>
                 ))}
               </div>

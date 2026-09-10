@@ -3,11 +3,13 @@ import { Button, CircularProgress } from "@mui/material";
 import { useFormik } from "formik";
 import React from "react";
 import { useGetEmployeeFilters, useGetEmployees } from "services/employees";
+import { useGetMasterDepartments, useGetMasterRoles } from "services/masters";
 import { CustomDatePicker } from "shared/DatePicker";
 import { AppDrawer } from "shared/Drawer";
 import { ImagePicker } from "shared/ImagePicker";
 import { Input } from "shared/Input";
 import { Select, type SelectOption } from "shared/Select";
+import { ActiveInactiveField } from "shared/ActiveInactiveField";
 import * as Yup from "yup";
 
 /**
@@ -18,14 +20,14 @@ export interface ManageEmployeeFormValues {
   name: string;
   /** Work email address */
   email: string;
-  /** Job designation / title */
-  role: string;
-  /** Department assignment */
-  department: string;
+  /** Selected Role ID */
+  role_id: number | "";
+  /** Selected Department ID */
+  department_id: number | "";
   /** Initial employment status */
   status: "Active" | "Inactive";
-  /** Designated reporting manager */
-  manager: string;
+  /** Designated reporting manager employee database ID */
+  manager_id: number | "" | null;
   /** Official company join date (YYYY-MM-DD) */
   join_date: string;
   /** Optional profile picture base64 string */
@@ -43,16 +45,14 @@ export interface ManageEmployeeProps {
   /** Callback fired with the newly created or updated employee record */
   onSubmit: (employee: ManageEmployeeFormValues) => Promise<void> | void;
   /** Optional initial employee data when editing */
-  initialData?: ManageEmployeeFormValues | null;
+  initialData?: (Partial<ManageEmployeeFormValues> & {
+    id?: string;
+    db_id?: number;
+    role?: string;
+    department?: string;
+    manager?: string;
+  }) | null;
 }
-
-/**
- * Status options for selection
- */
-const statusOptions: SelectOption[] = [
-  { label: "Active", value: "Active" },
-  { label: "Inactive", value: "Inactive" },
-];
 
 /**
  * Yup schema defining validation rules for employee creation
@@ -66,10 +66,14 @@ const employeeValidationSchema = Yup.object({
     .trim()
     .email("Must be a valid email address")
     .required("Work email is required"),
-  role: Yup.string().trim().required("Role / Job title is required"),
-  department: Yup.string().required("Department selection is required"),
+  role_id: Yup.number()
+    .typeError("Role selection is required")
+    .required("Role selection is required"),
+  department_id: Yup.number()
+    .typeError("Department selection is required")
+    .required("Department selection is required"),
   status: Yup.string().oneOf(["Active", "Inactive"]).required("Employment status is required"),
-  manager: Yup.string().trim().required("Reporting manager is required"),
+  manager_id: Yup.number().nullable().optional(),
   join_date: Yup.string().required("Join date is required"),
 });
 
@@ -79,10 +83,10 @@ const employeeValidationSchema = Yup.object({
 const initialValues: ManageEmployeeFormValues = {
   name: "",
   email: "",
-  role: "",
-  department: "",
+  role_id: "",
+  department_id: "",
   status: "Active",
-  manager: "",
+  manager_id: "",
   join_date: new Date().toISOString().split("T")[0],
   avatar: "",
 };
@@ -104,40 +108,112 @@ export const ManageEmployee: React.FC<ManageEmployeeProps> = ({
 
   const { data: filtersResponse } = useGetEmployeeFilters();
   const { data: employeesResponse } = useGetEmployees();
+  const { data: masterDepartmentsResponse } = useGetMasterDepartments();
+  const { data: masterRolesResponse } = useGetMasterRoles();
 
   /**
-   * Dynamic department options loaded directly from PostgreSQL
+   * Dynamic department options loaded strictly from Master Departments
    */
   const departmentOptions: SelectOption[] = React.useMemo(() => {
-    const depts = filtersResponse?.data?.departments || [];
-    return depts.map((dept) => ({ label: dept, value: dept }));
-  }, [filtersResponse?.data?.departments]);
+    const depts = masterDepartmentsResponse?.data || [];
+    const activeDepts = depts
+      .filter((dept) => dept.status === "Active" || dept.id === initialData?.department_id)
+      .map((dept) => ({ label: dept.name, value: dept.id }));
 
-  const defaultDepartment = filtersResponse?.data?.departments?.[0] || "";
+    if (activeDepts.length > 0) {
+      return activeDepts;
+    }
 
+    return (filtersResponse?.data?.departments || []).map((dept, idx) => ({
+      label: dept,
+      value: idx + 1,
+    }));
+  }, [
+    masterDepartmentsResponse?.data,
+    filtersResponse?.data?.departments,
+    initialData?.department_id,
+  ]);
+
+  /**
+   * Dynamic role options loaded strictly from Master Roles table
+   */
   const roleOptions: SelectOption[] = React.useMemo(() => {
-    const roles = filtersResponse?.data?.roles || [];
-    return roles.map((r) => ({ label: r, value: r }));
-  }, [filtersResponse?.data?.roles]);
+    const roles = masterRolesResponse?.data || [];
+    const activeRoles = roles
+      .filter((role) => role.status === "Active" || role.id === initialData?.role_id)
+      .map((role) => ({ label: role.name, value: role.id }));
 
+    if (activeRoles.length > 0) {
+      return activeRoles;
+    }
+
+    return (filtersResponse?.data?.roles || []).map((r, idx) => ({
+      label: r,
+      value: idx + 1,
+    }));
+  }, [masterRolesResponse?.data, filtersResponse?.data?.roles, initialData?.role_id]);
+
+  /**
+   * Dynamic manager options loaded from existing employees
+   */
   const managerOptions: SelectOption[] = React.useMemo(() => {
     const employees = employeesResponse?.data || [];
-    return employees.map((emp) => ({ label: emp.name, value: emp.name }));
-  }, [employeesResponse?.data]);
+    return employees
+      .filter((emp) => !initialData?.db_id || emp.db_id !== initialData.db_id)
+      .map((emp) => ({ label: emp.name, value: emp.db_id || 0 }))
+      .filter((m) => m.value > 0);
+  }, [employeesResponse?.data, initialData?.db_id]);
+
+  const initialRoleId = React.useMemo(() => {
+    if (initialData?.role_id) return initialData.role_id;
+    if (initialData?.role) {
+      const match = roleOptions.find(
+        (r) => r.label.toLowerCase() === initialData.role?.toLowerCase(),
+      );
+      if (match) return match.value as number;
+    }
+    return (roleOptions[0]?.value as number) ?? "";
+  }, [initialData?.role_id, initialData?.role, roleOptions]);
+
+  const initialDeptId = React.useMemo(() => {
+    if (initialData?.department_id) return initialData.department_id;
+    if (initialData?.department) {
+      const match = departmentOptions.find(
+        (d) => d.label.toLowerCase() === initialData.department?.toLowerCase(),
+      );
+      if (match) return match.value as number;
+    }
+    return (departmentOptions[0]?.value as number) ?? "";
+  }, [initialData?.department_id, initialData?.department, departmentOptions]);
+
+  const initialManagerId = React.useMemo(() => {
+    if (initialData?.manager_id) return initialData.manager_id;
+    if (initialData?.manager && initialData.manager !== "None") {
+      const match = managerOptions.find(
+        (m) => m.label.toLowerCase() === initialData.manager?.toLowerCase(),
+      );
+      if (match) return match.value as number;
+    }
+    return "";
+  }, [initialData?.manager_id, initialData?.manager, managerOptions]);
 
   const formik = useFormik<ManageEmployeeFormValues>({
     initialValues: initialData
       ? {
           name: initialData.name || "",
           email: initialData.email || "",
-          role: initialData.role || "",
-          department: initialData.department || defaultDepartment,
+          role_id: initialRoleId,
+          department_id: initialDeptId,
           status: initialData.status || "Active",
-          manager: initialData.manager || "",
+          manager_id: initialManagerId,
           join_date: initialData.join_date || new Date().toISOString().split("T")[0],
           avatar: initialData.avatar || "",
         }
-      : { ...initialValues, department: defaultDepartment },
+      : {
+          ...initialValues,
+          department_id: (departmentOptions[0]?.value as number) ?? "",
+          role_id: (roleOptions[0]?.value as number) ?? "",
+        },
     enableReinitialize: true,
     validationSchema: employeeValidationSchema,
     validateOnBlur: true,
@@ -147,7 +223,7 @@ export const ManageEmployee: React.FC<ManageEmployeeProps> = ({
         await onSubmit(values);
         resetForm();
         onClose();
-      } catch (err: any) {
+      } catch (err: unknown) {
       } finally {
         setSubmitting(false);
       }
@@ -204,7 +280,7 @@ export const ManageEmployee: React.FC<ManageEmployeeProps> = ({
         </>
       }
     >
-      <form onSubmit={formik.handleSubmit} className="space-y-4">
+      <form onSubmit={formik.handleSubmit} className="flex flex-col gap-4">
         <ImagePicker<ManageEmployeeFormValues>
           name="avatar"
           label="Profile Picture"
@@ -233,15 +309,15 @@ export const ManageEmployee: React.FC<ManageEmployeeProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select<ManageEmployeeFormValues>
-            name="role"
-            label="Job Title / Role"
+            name="role_id"
+            label="Role"
             options={roleOptions}
             required
             formik={formik}
           />
 
           <Select<ManageEmployeeFormValues>
-            name="department"
+            name="department_id"
             label="Department"
             options={departmentOptions}
             required
@@ -251,10 +327,9 @@ export const ManageEmployee: React.FC<ManageEmployeeProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Select<ManageEmployeeFormValues>
-            name="manager"
+            name="manager_id"
             label="Reporting Manager"
             options={managerOptions}
-            required
             formik={formik}
           />
 
@@ -265,12 +340,11 @@ export const ManageEmployee: React.FC<ManageEmployeeProps> = ({
           />
         </div>
 
-        <Select<ManageEmployeeFormValues>
+        <ActiveInactiveField<ManageEmployeeFormValues>
           name="status"
           label="Employment Status"
-          options={statusOptions}
-          required
           formik={formik}
+          required
         />
       </form>
     </AppDrawer>

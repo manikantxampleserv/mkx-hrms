@@ -46,6 +46,7 @@ import {
   useUpdateEmployee,
   type Employee,
 } from "services/employees";
+import { useGetMasterDepartments, useGetMasterRoles } from "services/masters";
 
 /**
  * Filter tab definitions for the toolbar
@@ -241,36 +242,44 @@ export default function Employees() {
 
   const { data: filtersResponse } = useGetEmployeeFilters();
   const filterOptionsData = filtersResponse?.data;
+  const { data: masterDepartmentsResponse } = useGetMasterDepartments();
+  const { data: masterRolesResponse } = useGetMasterRoles();
 
   const employees = useMemo(() => employeesResponse?.data || [], [employeesResponse]);
 
   /**
-   * Dynamic list of departments fetched directly from PostgreSQL database
+   * Dynamic list of departments fetched strictly from Master Departments
    */
   const uniqueDepartments = useMemo(() => {
-    const set = new Set<string>(filterOptionsData?.departments || []);
-    employees.forEach((e) => {
-      if (e.department) set.add(e.department);
-    });
-    if (departmentFilter && departmentFilter !== "All") {
-      set.add(departmentFilter);
+    const depts = masterDepartmentsResponse?.data || [];
+    const activeDepts = depts.filter((d) => d.status === "Active").map((d) => d.name);
+    if (activeDepts.length > 0) {
+      if (
+        departmentFilter &&
+        departmentFilter !== "All" &&
+        !activeDepts.includes(departmentFilter)
+      ) {
+        return [...activeDepts, departmentFilter].sort();
+      }
+      return activeDepts.sort();
     }
-    return Array.from(set);
-  }, [filterOptionsData?.departments, employees, departmentFilter]);
+    return (filterOptionsData?.departments || []).sort();
+  }, [masterDepartmentsResponse?.data, filterOptionsData?.departments, departmentFilter]);
 
   /**
-   * Dynamic roles fetched directly from PostgreSQL database
+   * Dynamic roles fetched strictly from Master Roles table
    */
   const uniqueRoles = useMemo(() => {
-    const set = new Set<string>(filterOptionsData?.roles || []);
-    employees.forEach((e) => {
-      if (e.role) set.add(e.role);
-    });
-    if (roleFilter && roleFilter !== "All") {
-      set.add(roleFilter);
+    const roles = masterRolesResponse?.data || [];
+    const activeRoles = roles.filter((r) => r.status === "Active").map((r) => r.name);
+    if (activeRoles.length > 0) {
+      if (roleFilter && roleFilter !== "All" && !activeRoles.includes(roleFilter)) {
+        return [...activeRoles, roleFilter].sort();
+      }
+      return activeRoles.sort();
     }
-    return Array.from(set);
-  }, [filterOptionsData?.roles, employees, roleFilter]);
+    return (filterOptionsData?.roles || []).sort();
+  }, [masterRolesResponse?.data, filterOptionsData?.roles, roleFilter]);
 
   /**
    * Dynamic managers fetched directly from PostgreSQL database
@@ -314,11 +323,21 @@ export default function Employees() {
   };
 
   const handleSaveEmployee = async (empValues: ManageEmployeeFormValues) => {
+    const payload = {
+      name: empValues.name,
+      email: empValues.email,
+      role_id: Number(empValues.role_id),
+      department_id: Number(empValues.department_id),
+      manager_id: empValues.manager_id ? Number(empValues.manager_id) : null,
+      status: empValues.status,
+      join_date: empValues.join_date,
+      avatar: empValues.avatar,
+    };
     if (selectedEmployee) {
-      await updateMutation.mutateAsync(empValues);
+      await updateMutation.mutateAsync(payload);
       setSelectedEmployee(null);
     } else {
-      await createMutation.mutateAsync(empValues);
+      await createMutation.mutateAsync(payload);
     }
   };
 
@@ -350,7 +369,9 @@ export default function Employees() {
       return join >= sixtyDaysAgo;
     }).length;
 
-    const departmentsCount = new Set(employees.map((e) => e.department).filter(Boolean)).size;
+    const departmentsCount =
+      masterDepartmentsResponse?.data?.length ||
+      new Set(employees.map((e) => e.department).filter(Boolean)).size;
 
     return [
       {

@@ -24,7 +24,7 @@ export const getLeaves = async (req: Request, res: Response, next: NextFunction)
       leave_type?: string;
       start_date?: { gte?: Date };
       end_date?: { lte?: Date };
-      employee?: { department?: string };
+      employee?: { department_rel?: { name?: string } };
     } = {};
 
     const andConditions: Array<Record<string, unknown>> = [];
@@ -40,7 +40,7 @@ export const getLeaves = async (req: Request, res: Response, next: NextFunction)
               OR: [
                 { name: { contains: search, mode: "insensitive" } },
                 { email: { contains: search, mode: "insensitive" } },
-                { department: { contains: search, mode: "insensitive" } },
+                { department_rel: { name: { contains: search, mode: "insensitive" } } },
               ],
             },
           },
@@ -55,7 +55,9 @@ export const getLeaves = async (req: Request, res: Response, next: NextFunction)
       whereClause.leave_type = leaveType;
     }
     if (department !== "All") {
-      whereClause.employee = { department };
+      whereClause.employee = {
+        department_rel: { name: department },
+      };
     }
     if (startDate) {
       whereClause.start_date = { gte: new Date(startDate) };
@@ -74,7 +76,11 @@ export const getLeaves = async (req: Request, res: Response, next: NextFunction)
       where: whereClause,
       orderBy: { created_at: "desc" },
       include: {
-        employee: true,
+        employee: {
+          include: {
+            department_rel: true,
+          },
+        },
       },
     });
 
@@ -83,7 +89,7 @@ export const getLeaves = async (req: Request, res: Response, next: NextFunction)
       db_id: item.id,
       name: item.employee.name,
       email: item.employee.email,
-      department: item.employee.department,
+      department: item.employee.department_rel?.name || "General",
       leave_type: item.leave_type as
         "Annual PTO" | "Sick Leave" | "Parental Leave" | "Casual Leave",
       start_date: item.start_date.toLocaleDateString("en-US", {
@@ -284,14 +290,18 @@ export const exportLeaves = async (
     const leaves = await prisma.leave.findMany({
       orderBy: { created_at: "desc" },
       include: {
-        employee: true,
+        employee: {
+          include: {
+            department_rel: true,
+          },
+        },
       },
     });
 
     const exportData = leaves.map((leave) => ({
       "Leave Code": leave.leave_code,
       Employee: leave.employee?.name || "Unknown",
-      Department: leave.employee?.department || "General",
+      Department: leave.employee?.department_rel?.name || "General",
       "Leave Type": leave.leave_type,
       "Start Date": leave.start_date ? leave.start_date.toISOString().split("T")[0] : "",
       "End Date": leave.end_date ? leave.end_date.toISOString().split("T")[0] : "",
@@ -333,20 +343,30 @@ export const getLeaveFilters = async (
       select: { name: true },
     });
 
+    const dbLeaveTypes = await prisma.leaveType.findMany({
+      where: { status: "Active" },
+      orderBy: { name: "asc" },
+      select: { name: true },
+    });
+
     const dbLeaves = await prisma.leave.findMany({
       select: {
         leave_type: true,
         employee: {
-          select: { department: true },
+          select: {
+            department_rel: {
+              select: { name: true },
+            },
+          },
         },
       },
     });
 
     const departmentsSet = new Set<string>(dbDepartments.map((d) => d.name));
-    const leaveTypesSet = new Set<string>();
+    const leaveTypesSet = new Set<string>(dbLeaveTypes.map((lt) => lt.name));
 
     dbLeaves.forEach((item) => {
-      if (item.employee?.department) departmentsSet.add(item.employee.department);
+      if (item.employee?.department_rel?.name) departmentsSet.add(item.employee.department_rel.name);
       if (item.leave_type) leaveTypesSet.add(item.leave_type);
     });
 

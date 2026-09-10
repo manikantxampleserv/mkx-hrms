@@ -25,7 +25,7 @@ export const getPayroll = async (
       AND?: Array<Record<string, unknown>>;
       status?: string;
       pay_date?: { gte?: Date; lte?: Date };
-      employee?: { department?: string };
+      employee?: { department_rel?: { name?: string } };
     } = {};
 
     const andConditions: Array<Record<string, unknown>> = [];
@@ -39,8 +39,8 @@ export const getPayroll = async (
               OR: [
                 { name: { contains: search, mode: "insensitive" } },
                 { email: { contains: search, mode: "insensitive" } },
-                { role: { contains: search, mode: "insensitive" } },
-                { department: { contains: search, mode: "insensitive" } },
+                { role_rel: { name: { contains: search, mode: "insensitive" } } },
+                { department_rel: { name: { contains: search, mode: "insensitive" } } },
               ],
             },
           },
@@ -52,7 +52,9 @@ export const getPayroll = async (
       whereClause.status = status;
     }
     if (department !== "All") {
-      whereClause.employee = { department };
+      whereClause.employee = {
+        department_rel: { name: department },
+      };
     }
     if (startDate || endDate) {
       const dateFilter: { gte?: Date; lte?: Date } = {};
@@ -75,7 +77,12 @@ export const getPayroll = async (
       where: whereClause,
       orderBy: { created_at: "desc" },
       include: {
-        employee: true,
+        employee: {
+          include: {
+            role_rel: true,
+            department_rel: true,
+          },
+        },
       },
     });
 
@@ -84,8 +91,8 @@ export const getPayroll = async (
       db_id: item.id,
       name: item.employee.name,
       email: item.employee.email,
-      role: item.employee.role,
-      department: item.employee.department,
+      role: item.employee.role_rel?.name || "Staff",
+      department: item.employee.department_rel?.name || "General",
       base_salary: `$${Number(item.base_salary).toLocaleString()}`,
       allowance: Number(item.allowance) > 0 ? `+$${Number(item.allowance).toLocaleString()}` : "$0",
       net_pay: `$${Number(item.net_pay).toLocaleString()}`,
@@ -221,7 +228,12 @@ export const exportPayroll = async (
     const payrolls = await prisma.payroll.findMany({
       orderBy: { created_at: "desc" },
       include: {
-        employee: true,
+        employee: {
+          include: {
+            role_rel: true,
+            department_rel: true,
+          },
+        },
       },
     });
 
@@ -234,8 +246,8 @@ export const exportPayroll = async (
       return {
         "Payroll Code": pay.payroll_code,
         Employee: pay.employee?.name || "Unknown",
-        Department: pay.employee?.department || "General",
-        Role: pay.employee?.role || "General",
+        Department: pay.employee?.department_rel?.name || "General",
+        Role: pay.employee?.role_rel?.name || "General",
         "Base Salary": `$${base.toLocaleString()}`,
         Allowances: `$${allowance.toLocaleString()}`,
         Deductions: `$${deductions.toLocaleString()}`,
@@ -277,24 +289,37 @@ export const getPayrollFilters = async (
       select: { name: true },
     });
 
+    const dbStructures = await prisma.salaryStructure.findMany({
+      where: { status: "Active" },
+      orderBy: { name: "asc" },
+      select: { name: true },
+    });
+
     const dbPayroll = await prisma.payroll.findMany({
       select: {
         employee: {
-          select: { department: true },
+          select: {
+            department_rel: {
+              select: { name: true },
+            },
+          },
         },
       },
     });
 
     const departmentsSet = new Set<string>(dbDepartments.map((d) => d.name));
+    const structuresSet = new Set<string>(dbStructures.map((s) => s.name));
 
     dbPayroll.forEach((item) => {
-      if (item.employee?.department) departmentsSet.add(item.employee.department);
+      if (item.employee?.department_rel?.name)
+        departmentsSet.add(item.employee.department_rel.name);
     });
 
     res.sendSuccess({
       message: "Payroll filter options retrieved successfully",
       data: {
         departments: Array.from(departmentsSet).sort(),
+        salaryStructures: Array.from(structuresSet).sort(),
       },
     });
   } catch (err) {
@@ -392,7 +417,14 @@ export const getMyPayroll = async (
     const records = await prisma.payroll.findMany({
       where: { employee_id: employeeId },
       orderBy: { pay_date: "desc" },
-      include: { employee: true },
+      include: {
+        employee: {
+          include: {
+            role_rel: true,
+            department_rel: true,
+          },
+        },
+      },
     });
 
     const formattedSlips = records.map((item) => {
@@ -423,8 +455,8 @@ export const getMyPayroll = async (
         }),
         month_label: monthStr,
         employee_name: item.employee.name,
-        role: item.employee.role,
-        department: item.employee.department,
+        role: item.employee.role_rel?.name || "Staff",
+        department: item.employee.department_rel?.name || "General",
       };
     });
 

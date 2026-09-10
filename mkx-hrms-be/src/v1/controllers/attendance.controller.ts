@@ -28,7 +28,7 @@ export const getAttendance = async (
       status?: string;
       location?: string;
       date?: { gte?: Date; lte?: Date };
-      employee?: { department?: string };
+      employee?: { department_rel?: { name?: string } };
     } = {};
 
     const andConditions: Array<Record<string, unknown>> = [];
@@ -43,7 +43,7 @@ export const getAttendance = async (
               OR: [
                 { name: { contains: search, mode: "insensitive" } },
                 { email: { contains: search, mode: "insensitive" } },
-                { department: { contains: search, mode: "insensitive" } },
+                { department_rel: { name: { contains: search, mode: "insensitive" } } },
               ],
             },
           },
@@ -58,7 +58,9 @@ export const getAttendance = async (
       whereClause.location = location;
     }
     if (department !== "All") {
-      whereClause.employee = { department };
+      whereClause.employee = {
+        department_rel: { name: department },
+      };
     }
     if (startDate || endDate) {
       const dateFilter: { gte?: Date; lte?: Date } = {};
@@ -81,7 +83,11 @@ export const getAttendance = async (
       where: whereClause,
       orderBy: { created_at: "desc" },
       include: {
-        employee: true,
+        employee: {
+          include: {
+            department_rel: true,
+          },
+        },
       },
     });
 
@@ -90,7 +96,7 @@ export const getAttendance = async (
       db_id: item.id,
       name: item.employee.name,
       email: item.employee.email,
-      department: item.employee.department,
+      department: item.employee.department_rel?.name || "General",
       check_in: item.check_in || "--:--",
       check_out: item.check_out || "--:--",
       work_hours: item.work_hours || "0h 00m",
@@ -249,14 +255,18 @@ export const exportAttendance = async (
     const records = await prisma.attendance.findMany({
       orderBy: { date: "desc" },
       include: {
-        employee: true,
+        employee: {
+          include: {
+            department_rel: true,
+          },
+        },
       },
     });
 
     const exportData = records.map((rec) => ({
       "Record ID": rec.record_id,
       Employee: rec.employee?.name || "Unknown",
-      Department: rec.employee?.department || "General",
+      Department: rec.employee?.department_rel?.name || "General",
       Date: rec.date ? rec.date.toISOString().split("T")[0] : "",
       "Check In": rec.check_in || "--:--",
       "Check Out": rec.check_out || "--:--",
@@ -297,20 +307,31 @@ export const getAttendanceFilters = async (
       select: { name: true },
     });
 
+    const dbShifts = await prisma.workShift.findMany({
+      where: { status: "Active" },
+      orderBy: { name: "asc" },
+      select: { name: true },
+    });
+
     const dbAttendance = await prisma.attendance.findMany({
       select: {
         location: true,
         employee: {
-          select: { department: true },
+          select: {
+            department_rel: {
+              select: { name: true },
+            },
+          },
         },
       },
     });
 
     const departmentsSet = new Set<string>(dbDepartments.map((d) => d.name));
+    const shiftsSet = new Set<string>(dbShifts.map((s) => s.name));
     const locationsSet = new Set<string>();
 
     dbAttendance.forEach((item) => {
-      if (item.employee?.department) departmentsSet.add(item.employee.department);
+      if (item.employee?.department_rel?.name) departmentsSet.add(item.employee.department_rel.name);
       if (item.location) locationsSet.add(item.location);
     });
 
@@ -319,6 +340,7 @@ export const getAttendanceFilters = async (
       data: {
         departments: Array.from(departmentsSet).sort(),
         locations: Array.from(locationsSet).sort(),
+        shifts: Array.from(shiftsSet).sort(),
       },
     });
   } catch (err) {

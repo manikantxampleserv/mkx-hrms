@@ -18,7 +18,7 @@ export interface AppDrawerProps {
   children: React.ReactNode;
   /** Optional sticky footer actions area */
   footer?: React.ReactNode;
-  /** Drawer width in pixels or CSS value (default 500px) */
+  /** Drawer width in pixels or CSS value (default 560px) */
   width?: number | string;
 }
 
@@ -37,7 +37,7 @@ export const AppDrawer: React.FC<AppDrawerProps> = ({
   subtitle,
   children,
   footer,
-  width = 500,
+  width = 560,
 }) => {
   return (
     <MuiDrawer
@@ -59,7 +59,7 @@ export const AppDrawer: React.FC<AppDrawerProps> = ({
       }}
     >
       {/* Header with Title, Subtitle, and Close Action */}
-      <div className="flex items-center justify-between p-3 border-b border-border dark:border-zinc-800 shrink-0 bg-white dark:bg-black">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border dark:border-zinc-800 shrink-0 bg-white dark:bg-black">
         <div className="flex flex-col">
           <h2 className="text-base font-semibold text-foreground tracking-tight">{title}</h2>
           {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
@@ -75,11 +75,11 @@ export const AppDrawer: React.FC<AppDrawerProps> = ({
       </div>
 
       {/* Scrollable Form/Content Body */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-4 bg-white dark:bg-black">{children}</div>
+      <div className="flex-1 overflow-y-auto p-5 bg-white dark:bg-black">{children}</div>
 
       {/* Sticky Footer Actions Area */}
       {footer && (
-        <div className="p-3 border-t border-border dark:border-zinc-800 bg-white dark:bg-black backdrop-blur-sm shrink-0 flex items-center justify-end gap-3">
+        <div className="px-5 py-3.5 border-t border-border dark:border-zinc-800 bg-white dark:bg-black backdrop-blur-sm shrink-0 flex items-center justify-end gap-3">
           {footer}
         </div>
       )}

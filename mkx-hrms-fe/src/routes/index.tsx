@@ -13,6 +13,7 @@ import Payroll from "pages/Payroll";
 import Reports from "pages/Reports";
 import Settings from "pages/Settings";
 import Blogs from "pages/Blogs";
+import Masters from "pages/Masters";
 
 /**
  * Contract representing an application route item
@@ -51,6 +52,34 @@ export const appRoutes: AppRouteItem[] = [
   {
     path: "/payroll",
     element: <Payroll />,
+  },
+  {
+    path: "/masters",
+    element: <Masters />,
+  },
+  {
+    path: "/masters/departments",
+    element: <Masters />,
+  },
+  {
+    path: "/masters/roles",
+    element: <Masters />,
+  },
+  {
+    path: "/masters/designations",
+    element: <Masters />,
+  },
+  {
+    path: "/masters/salary-structures",
+    element: <Masters />,
+  },
+  {
+    path: "/masters/leave-types",
+    element: <Masters />,
+  },
+  {
+    path: "/masters/shifts",
+    element: <Masters />,
   },
   {
     path: "/reports",
@@ -109,4 +138,3 @@ export function AppRoutes() {
     </Routes>
   );
 }
-

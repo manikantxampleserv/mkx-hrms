@@ -123,12 +123,9 @@ export const createEmployeeWithUser = async (
         first_name: firstName,
         last_name: lastName,
         email: input.email,
-        role: input.role,
         role_id: input.role_id ?? null,
-        department: input.department,
         department_id: input.department_id ?? null,
         status: input.status ?? "Active",
-        manager_name: input.manager_name ?? null,
         manager_id: input.manager_id ?? null,
         join_date: new Date(input.join_date),
         avatar: input.avatar ?? null,
@@ -154,6 +151,8 @@ export const onboardCandidateToEmployee = async (
     employee_id?: string;
     manager_name?: string;
     manager_id?: number;
+    role_id?: number;
+    department_id?: number;
     join_date?: Date | string;
     department?: string;
     role?: string;
@@ -182,6 +181,30 @@ export const onboardCandidateToEmployee = async (
     const temporaryPassword = generateTemporaryPassword();
     const hashedPassword = await hashPassword(temporaryPassword);
 
+    let deptId = additionalInfo?.department_id ?? null;
+    if (!deptId && (additionalInfo?.department || candidate.department)) {
+      const dbDept = await tx.department.findFirst({
+        where: { name: additionalInfo?.department || candidate.department },
+      });
+      if (dbDept) deptId = dbDept.id;
+    }
+
+    let roleId = additionalInfo?.role_id ?? null;
+    if (!roleId && (additionalInfo?.role || candidate.position)) {
+      const dbRole = await tx.role.findFirst({
+        where: { name: additionalInfo?.role || candidate.position },
+      });
+      if (dbRole) roleId = dbRole.id;
+    }
+
+    let mgrId = additionalInfo?.manager_id ?? null;
+    if (!mgrId && additionalInfo?.manager_name) {
+      const dbMgr = await tx.employee.findFirst({
+        where: { name: additionalInfo.manager_name },
+      });
+      if (dbMgr) mgrId = dbMgr.id;
+    }
+
     const user = await tx.user.create({
       data: {
         employee_id: generatedEmployeeId,
@@ -191,6 +214,7 @@ export const onboardCandidateToEmployee = async (
         password_hash: hashedPassword,
         avatar: candidate.avatar,
         status: "active",
+        role_id: roleId,
         timezone: "UTC (GMT+00:00)",
         notification_preferences: {
           create: DEFAULT_NOTIFICATION_PREFERENCES.map((pref) => ({
@@ -214,11 +238,10 @@ export const onboardCandidateToEmployee = async (
         first_name: parsedFirst,
         last_name: parsedLast,
         email: candidate.email,
-        role: additionalInfo?.role || candidate.position,
-        department: additionalInfo?.department || candidate.department,
+        role_id: roleId,
+        department_id: deptId,
         status: "Active",
-        manager_name: additionalInfo?.manager_name ?? null,
-        manager_id: additionalInfo?.manager_id ?? null,
+        manager_id: mgrId,
         join_date: additionalInfo?.join_date ? new Date(additionalInfo.join_date) : new Date(),
         avatar: candidate.avatar,
         user_id: user.id,

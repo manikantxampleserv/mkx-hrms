@@ -13,9 +13,12 @@ export interface Employee {
   last_name?: string | null;
   email: string;
   role: string;
+  role_id?: number | null;
   department: string;
+  department_id?: number | null;
   status: "Active" | "Inactive";
   manager: string;
+  manager_id?: number | null;
   join_date: string;
   avatar?: string;
 }

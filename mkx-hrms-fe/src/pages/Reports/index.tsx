@@ -162,8 +162,8 @@ export default function Reports() {
                   domain={[65, 100]}
                 />
                 <Tooltip
-                  formatter={(val: number | string | undefined) => [
-                    `${val ?? 0}%`,
+                  formatter={(val: unknown) => [
+                    `${typeof val === "number" || typeof val === "string" ? val : 0}%`,
                     "Retention Rate",
                   ]}
                   contentStyle={{
@@ -203,7 +203,10 @@ export default function Reports() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Tooltip
-                    formatter={(val: number | string | undefined) => [`${val ?? 0}%`, "Share"]}
+                    formatter={(val: unknown) => [
+                      `${typeof val === "number" || typeof val === "string" ? val : 0}%`,
+                      "Share",
+                    ]}
                     contentStyle={{
                       backgroundColor: "var(--card)",
                       borderColor: "var(--border)",

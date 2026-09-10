@@ -90,15 +90,20 @@ export const activityTrackingMiddleware = async (
         where: {
           OR: [...(numericId ? [{ id: numericId }] : []), { employee_id: idStr }],
         },
+        include: {
+          role_rel: true,
+          department_rel: true,
+          manager: true,
+        },
       });
       if (emp) {
         snapshot = {
           id: emp.id,
           name: emp.name,
           status: emp.status,
-          role: emp.role,
-          department: emp.department,
-          manager_name: emp.manager_name || undefined,
+          role: emp.role_rel?.name,
+          department: emp.department_rel?.name,
+          manager_name: emp.manager?.name || undefined,
           email: emp.email,
           employee_id: emp.id,
           user_id: emp.user_id,

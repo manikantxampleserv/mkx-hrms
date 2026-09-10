@@ -27,7 +27,13 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
       },
       include: {
         role: true,
-        employee: true,
+        employee: {
+          include: {
+            role_rel: true,
+            department_rel: true,
+            manager: true,
+          },
+        },
       },
     });
 
@@ -43,10 +49,6 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
 
     if (user.password_hash) {
       isPasswordValid = await comparePassword(password, user.password_hash);
-    }
-
-    if (!isPasswordValid && (password === "password123" || password === "admin123")) {
-      isPasswordValid = true;
     }
 
     if (!isPasswordValid) {
@@ -66,13 +68,18 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
             { email: { equals: user.email, mode: "insensitive" } },
           ],
         },
+        include: {
+          role_rel: true,
+          department_rel: true,
+          manager: true,
+        },
       });
     }
 
     const token = generateToken({
       id: user.id,
       email: user.email,
-      role: user.role?.name || employee?.role || "Employee",
+      role: user.role?.name || employee?.role_rel?.name || "Employee",
       employee_db_id: employee?.id,
       employee_code: employee?.employee_id || user.employee_id,
     });
@@ -86,11 +93,11 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
       name: `${user.first_name} ${user.last_name}`.trim(),
       email: user.email,
       avatar: user.avatar || employee?.avatar || null,
-      role: user.role?.name || employee?.role || "Employee",
-      department: employee?.department || "Engineering",
+      role: user.role?.name || employee?.role_rel?.name || "Employee",
+      department: employee?.department_rel?.name || "Engineering",
       status: employee?.status || user.status || "Active",
       join_date: employee?.join_date ? employee.join_date.toISOString().split("T")[0] : null,
-      manager_name: employee?.manager_name || null,
+      manager_name: employee?.manager?.name || null,
       timezone: user.timezone,
     };
 
@@ -156,7 +163,13 @@ export const getMe = async (req: Request, res: Response, next: NextFunction): Pr
       where: { id: decoded.id },
       include: {
         role: true,
-        employee: true,
+        employee: {
+          include: {
+            role_rel: true,
+            department_rel: true,
+            manager: true,
+          },
+        },
       },
     });
 
@@ -177,6 +190,11 @@ export const getMe = async (req: Request, res: Response, next: NextFunction): Pr
             { email: { equals: user.email, mode: "insensitive" } },
           ],
         },
+        include: {
+          role_rel: true,
+          department_rel: true,
+          manager: true,
+        },
       });
     }
 
@@ -189,11 +207,11 @@ export const getMe = async (req: Request, res: Response, next: NextFunction): Pr
       name: `${user.first_name} ${user.last_name}`.trim(),
       email: user.email,
       avatar: user.avatar || employee?.avatar || null,
-      role: user.role?.name || employee?.role || "Employee",
-      department: employee?.department || "Engineering",
+      role: user.role?.name || employee?.role_rel?.name || "Employee",
+      department: employee?.department_rel?.name || "Engineering",
       status: employee?.status || user.status || "Active",
       join_date: employee?.join_date ? employee.join_date.toISOString().split("T")[0] : null,
-      manager_name: employee?.manager_name || null,
+      manager_name: employee?.manager?.name || null,
       timezone: user.timezone,
     };
 

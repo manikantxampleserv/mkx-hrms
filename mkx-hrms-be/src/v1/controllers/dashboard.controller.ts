@@ -67,6 +67,9 @@ export const getDashboardOverview = async (
       where: { status: "Active" },
       take: 4,
       orderBy: { created_at: "asc" },
+      include: {
+        role_rel: true,
+      },
     });
 
     const formattedActivities = activities.map((act) => {
@@ -92,7 +95,7 @@ export const getDashboardOverview = async (
 
     const formattedPerformers = topEmployees.map((emp, idx) => ({
       name: emp.name,
-      role: emp.role,
+      role: emp.role_rel?.name || "Staff",
       deals: 18 - idx * 3,
       avatar: emp.avatar || undefined,
     }));

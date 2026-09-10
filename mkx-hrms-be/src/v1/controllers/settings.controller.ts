@@ -28,7 +28,11 @@ export const getSettings = async (
       where: userId ? { id: userId } : undefined,
       include: {
         role: true,
-        employee: true,
+        employee: {
+          include: {
+            role_rel: true,
+          },
+        },
         notification_preferences: true,
       },
     });
@@ -68,7 +72,7 @@ export const getSettings = async (
         first_name: user?.first_name || "Alex",
         last_name: user?.last_name || "Morgan",
         email: user?.email || "alex.morgan@mkx.dev",
-        role: user?.role?.name || user?.employee?.role || "Employee",
+        role: user?.role?.name || user?.employee?.role_rel?.name || "Employee",
         timezone: "Asia/Kolkata",
         avatar:
           user?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",

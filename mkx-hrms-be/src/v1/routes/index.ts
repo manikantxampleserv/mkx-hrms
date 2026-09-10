@@ -10,6 +10,7 @@ import reportsRoutes from "./reports.routes";
 import dashboardRoutes from "./dashboard.routes";
 import settingsRoutes from "./settings.routes";
 import blogsRoutes from "./blogs.routes";
+import mastersRoutes from "./masters.routes";
 
 const router = Router();
 
@@ -25,5 +26,6 @@ router.use("/reports", reportsRoutes);
 router.use("/dashboard", dashboardRoutes);
 router.use("/settings", settingsRoutes);
 router.use("/blogs", blogsRoutes);
+router.use("/masters", mastersRoutes);
 
 export default router;

@@ -30,9 +30,12 @@ export const getEmployees = async (
     const whereClause: {
       AND?: Array<Record<string, unknown>>;
       status?: string;
-      department?: string;
-      role?: string;
-      manager_name?: string;
+      department_rel?: { name?: string };
+      department_id?: number;
+      role_rel?: { name?: string };
+      role_id?: number;
+      manager?: { name?: string };
+      manager_id?: number;
       join_date?: { gte?: Date; lte?: Date };
     } = {};
 
@@ -43,8 +46,8 @@ export const getEmployees = async (
         OR: [
           { name: { contains: search, mode: "insensitive" } },
           { email: { contains: search, mode: "insensitive" } },
-          { role: { contains: search, mode: "insensitive" } },
-          { department: { contains: search, mode: "insensitive" } },
+          { role_rel: { name: { contains: search, mode: "insensitive" } } },
+          { department_rel: { name: { contains: search, mode: "insensitive" } } },
         ],
       });
     }
@@ -53,13 +56,25 @@ export const getEmployees = async (
       whereClause.status = status;
     }
     if (department !== "All") {
-      whereClause.department = department;
+      if (!isNaN(Number(department))) {
+        whereClause.department_id = Number(department);
+      } else {
+        whereClause.department_rel = { name: department };
+      }
     }
     if (role !== "All") {
-      whereClause.role = role;
+      if (!isNaN(Number(role))) {
+        whereClause.role_id = Number(role);
+      } else {
+        whereClause.role_rel = { name: role };
+      }
     }
     if (manager !== "All") {
-      whereClause.manager_name = manager;
+      if (!isNaN(Number(manager))) {
+        whereClause.manager_id = Number(manager);
+      } else {
+        whereClause.manager = { name: manager };
+      }
     }
     if (startDate || endDate) {
       const dateFilter: { gte?: Date; lte?: Date } = {};
@@ -84,6 +99,7 @@ export const getEmployees = async (
       include: {
         department_rel: true,
         role_rel: true,
+        manager: true,
       },
     });
 
@@ -94,10 +110,13 @@ export const getEmployees = async (
       first_name: emp.first_name,
       last_name: emp.last_name,
       email: emp.email,
-      role: emp.role,
-      department: emp.department,
+      role: emp.role_rel?.name || "Staff",
+      role_id: emp.role_id,
+      department: emp.department_rel?.name || "General",
+      department_id: emp.department_id,
       status: emp.status,
-      manager: emp.manager_name || "None",
+      manager: emp.manager?.name || "None",
+      manager_id: emp.manager_id,
       join_date: emp.join_date.toISOString().split("T")[0],
       avatar: emp.avatar || undefined,
     }));
@@ -200,33 +219,61 @@ export const createEmployee = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const manager_name = req.body.manager || req.body.manager_name;
-    const input: CreateEmployeeInput = { ...req.body, manager_name };
+    let role_id: number | null =
+      req.body.role_id !== undefined && req.body.role_id !== "" ? Number(req.body.role_id) : null;
+    let department_id: number | null =
+      req.body.department_id !== undefined && req.body.department_id !== ""
+        ? Number(req.body.department_id)
+        : null;
+    let manager_id: number | null =
+      req.body.manager_id !== undefined && req.body.manager_id !== ""
+        ? Number(req.body.manager_id)
+        : null;
+
+    if (!department_id && req.body.department) {
+      const dbDept = await prisma.department.findFirst({ where: { name: req.body.department } });
+      if (dbDept) department_id = dbDept.id;
+    }
+
+    if (!role_id && req.body.role) {
+      const dbRole = await prisma.role.findFirst({ where: { name: req.body.role } });
+      if (dbRole) role_id = dbRole.id;
+    }
+
+    if (!manager_id && (req.body.manager || req.body.manager_name)) {
+      const mgrName = req.body.manager || req.body.manager_name;
+      const dbManager = await prisma.employee.findFirst({ where: { name: mgrName } });
+      if (dbManager) manager_id = dbManager.id;
+    }
+
+    const input: CreateEmployeeInput = {
+      ...req.body,
+      role_id,
+      department_id,
+      manager_id,
+    };
 
     if (!input.employee_id) {
       const count = await prisma.employee.count();
       input.employee_id = `EMP-${String(count + 1).padStart(3, "0")}`;
     }
 
-    if (input.role) {
-      const dbRole = await prisma.role.findFirst({ where: { name: input.role } });
-      if (dbRole) input.role_id = dbRole.id;
-    }
-
-    if (input.manager_name) {
-      const dbManager = await prisma.employee.findFirst({ where: { name: input.manager_name } });
-      if (dbManager) input.manager_id = dbManager.id;
-    }
-
     const created = await createEmployeeWithUser(input);
 
     if (created.temporaryPassword && created.employee.email) {
+      const resolvedRole = role_id
+        ? (await prisma.role.findUnique({ where: { id: role_id } }))?.name || "Employee"
+        : "Employee";
+      const resolvedDept = department_id
+        ? (await prisma.department.findUnique({ where: { id: department_id } }))?.name || "General"
+        : "General";
+
       sendEmployeeWelcomeEmail({
         name: created.employee.name,
         email: created.employee.email,
         employeeId: created.employee.employee_id,
-        role: created.employee.role,
-        department: created.employee.department,
+        role: resolvedRole,
+        department: resolvedDept,
         temporaryPassword: created.temporaryPassword,
       }).catch((emailError: unknown) => {
         logger.error("Failed to send welcome email for created employee:", emailError);
@@ -273,14 +320,31 @@ export const updateEmployee = async (
       return;
     }
 
-    let role_id: number | undefined;
-    if (role) {
+    let department_id: number | undefined =
+      req.body.department_id !== undefined && req.body.department_id !== ""
+        ? Number(req.body.department_id)
+        : undefined;
+    if (department_id === undefined && department) {
+      const dbDept = await prisma.department.findFirst({ where: { name: department } });
+      if (dbDept) department_id = dbDept.id;
+    }
+
+    let role_id: number | undefined =
+      req.body.role_id !== undefined && req.body.role_id !== ""
+        ? Number(req.body.role_id)
+        : undefined;
+    if (role_id === undefined && role) {
       const dbRole = await prisma.role.findFirst({ where: { name: role } });
       if (dbRole) role_id = dbRole.id;
     }
 
-    let manager_id: number | undefined;
-    if (manager) {
+    let manager_id: number | undefined =
+      req.body.manager_id !== undefined && req.body.manager_id !== ""
+        ? req.body.manager_id === null
+          ? undefined
+          : Number(req.body.manager_id)
+        : undefined;
+    if (manager_id === undefined && manager) {
       const dbManager = await prisma.employee.findFirst({ where: { name: manager } });
       if (dbManager) manager_id = dbManager.id;
     }
@@ -291,14 +355,17 @@ export const updateEmployee = async (
         data: {
           name: name ?? existing.name,
           email: email ?? existing.email,
-          role: role ?? existing.role,
           role_id: role_id !== undefined ? role_id : existing.role_id,
-          department: department ?? existing.department,
+          department_id: department_id !== undefined ? department_id : existing.department_id,
           status: status ?? existing.status,
-          manager_name: manager ?? existing.manager_name,
           manager_id: manager_id !== undefined ? manager_id : existing.manager_id,
           join_date: join_date ? new Date(join_date) : existing.join_date,
           avatar: avatar !== undefined ? avatar : existing.avatar,
+        },
+        include: {
+          role_rel: true,
+          department_rel: true,
+          manager: true,
         },
       });
 
@@ -308,6 +375,7 @@ export const updateEmployee = async (
           data: {
             email: email ?? existing.email,
             avatar: avatar !== undefined ? avatar : existing.avatar,
+            role_id: role_id !== undefined ? role_id : undefined,
             status: status ? status.toLowerCase() : undefined,
           },
         });
@@ -391,6 +459,8 @@ export const exportEmployees = async (
     const employees = await prisma.employee.findMany({
       orderBy: { id: "asc" },
       include: {
+        role_rel: true,
+        department_rel: true,
         manager: true,
       },
     });
@@ -399,10 +469,10 @@ export const exportEmployees = async (
       "Employee ID": emp.employee_id,
       "Full Name": emp.name,
       Email: emp.email,
-      Role: emp.role,
-      Department: emp.department,
+      Role: emp.role_rel?.name || "Staff",
+      Department: emp.department_rel?.name || "General",
       Status: emp.status,
-      Manager: emp.manager?.name || emp.manager_name || "None",
+      Manager: emp.manager?.name || "None",
       "Join Date": emp.join_date ? emp.join_date.toISOString().split("T")[0] : "",
     }));
 
@@ -434,20 +504,20 @@ export const getEmployeeFilters = async (
 ): Promise<void> => {
   try {
     const dbDepartments = await prisma.department.findMany({
+      where: { status: "Active" },
       orderBy: { name: "asc" },
       select: { name: true },
     });
 
     const dbRoles = await prisma.role.findMany({
+      where: { status: "Active" },
       orderBy: { name: "asc" },
       select: { name: true },
     });
 
     const dbEmployees = await prisma.employee.findMany({
-      select: {
-        department: true,
-        role: true,
-        manager_name: true,
+      include: {
+        manager: true,
       },
     });
 
@@ -456,9 +526,7 @@ export const getEmployeeFilters = async (
     const managersSet = new Set<string>();
 
     dbEmployees.forEach((emp) => {
-      if (emp.department) departmentsSet.add(emp.department);
-      if (emp.role) rolesSet.add(emp.role);
-      if (emp.manager_name) managersSet.add(emp.manager_name);
+      if (emp.manager?.name) managersSet.add(emp.manager.name);
     });
 
     res.sendSuccess({
