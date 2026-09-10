@@ -220,13 +220,19 @@ export const createEmployee = async (
 ): Promise<void> => {
   try {
     let role_id: number | null =
-      req.body.role_id !== undefined && req.body.role_id !== "" ? Number(req.body.role_id) : null;
+      req.body.role_id !== undefined && req.body.role_id !== null && req.body.role_id !== ""
+        ? Number(req.body.role_id)
+        : null;
     let department_id: number | null =
-      req.body.department_id !== undefined && req.body.department_id !== ""
+      req.body.department_id !== undefined &&
+      req.body.department_id !== null &&
+      req.body.department_id !== ""
         ? Number(req.body.department_id)
         : null;
     let manager_id: number | null =
-      req.body.manager_id !== undefined && req.body.manager_id !== ""
+      req.body.manager_id !== undefined &&
+      req.body.manager_id !== null &&
+      req.body.manager_id !== ""
         ? Number(req.body.manager_id)
         : null;
 
@@ -321,7 +327,9 @@ export const updateEmployee = async (
     }
 
     let department_id: number | undefined =
-      req.body.department_id !== undefined && req.body.department_id !== ""
+      req.body.department_id !== undefined &&
+      req.body.department_id !== null &&
+      req.body.department_id !== ""
         ? Number(req.body.department_id)
         : undefined;
     if (department_id === undefined && department) {
@@ -330,7 +338,7 @@ export const updateEmployee = async (
     }
 
     let role_id: number | undefined =
-      req.body.role_id !== undefined && req.body.role_id !== ""
+      req.body.role_id !== undefined && req.body.role_id !== null && req.body.role_id !== ""
         ? Number(req.body.role_id)
         : undefined;
     if (role_id === undefined && role) {
@@ -338,10 +346,10 @@ export const updateEmployee = async (
       if (dbRole) role_id = dbRole.id;
     }
 
-    let manager_id: number | undefined =
+    let manager_id: number | null | undefined =
       req.body.manager_id !== undefined && req.body.manager_id !== ""
         ? req.body.manager_id === null
-          ? undefined
+          ? null
           : Number(req.body.manager_id)
         : undefined;
     if (manager_id === undefined && manager) {
