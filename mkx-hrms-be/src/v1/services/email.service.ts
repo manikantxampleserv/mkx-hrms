@@ -1,3 +1,5 @@
+import dns from "node:dns";
+import net from "node:net";
 import nodemailer, { Transporter } from "nodemailer";
 import { logger } from "../../utils/logger";
 
@@ -50,30 +52,64 @@ export const generateTemporaryPassword = (length = 12): string => {
 let transporterInstance: Transporter | null = null;
 
 /**
+ * Resolves all available IPv4 addresses for a given SMTP hostname to prevent ENETUNREACH errors on cloud hosting environments without IPv6 routing
+ *
+ * @param hostname - The SMTP server domain name
+ * @returns Array of resolved IPv4 address strings
+ */
+const resolveIpv4Addresses = async (hostname: string): Promise<string[]> => {
+  if (net.isIP(hostname)) {
+    return [hostname];
+  }
+  try {
+    const addresses = await dns.promises.resolve4(hostname);
+    if (addresses && addresses.length > 0) {
+      return addresses;
+    }
+  } catch (error) {
+    logger.warn(`Could not resolve IPv4 addresses for host ${hostname}: ${String(error)}`);
+  }
+  return [hostname];
+};
+
+/**
+ * Creates a Nodemailer Transporter bound to a specific host or IPv4 address
+ *
+ * @param hostAddress - Hostname or direct IPv4 address
+ * @param servername - TLS SNI servername for SSL certificate validation
+ * @returns Configured Nodemailer Transporter instance
+ */
+const createTransporterForHost = (hostAddress: string, servername: string): Transporter => {
+  const port = Number(process.env.SMTP_PORT) || 465;
+  const isSecure = port === 465;
+  const user = process.env.SMTP_USERNAME || "mkx.webs@gmail.com";
+  const pass = process.env.SMTP_PASSWORD || "rkpw ijyd pzap cdoe";
+
+  return nodemailer.createTransport({
+    host: hostAddress,
+    port,
+    secure: isSecure,
+    auth: {
+      user,
+      pass,
+    },
+    tls: {
+      servername,
+      rejectUnauthorized: false,
+    },
+  });
+};
+
+/**
  * Retrieves or initializes the singleton Nodemailer transport instance
  *
  * @returns Configured Nodemailer Transporter
  */
-const getMailTransporter = (): Transporter => {
+const getMailTransporter = async (): Promise<Transporter> => {
   if (!transporterInstance) {
-    const host = process.env.SMTP_HOST || "smtp.gmail.com";
-    const port = Number(process.env.SMTP_PORT) || 465;
-    const isSecure = port === 465;
-    const user = process.env.SMTP_USERNAME || "mkx.webs@gmail.com";
-    const pass = process.env.SMTP_PASSWORD || "rkpw ijyd pzap cdoe";
-
-    transporterInstance = nodemailer.createTransport({
-      host,
-      port,
-      secure: isSecure,
-      auth: {
-        user,
-        pass,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-    });
+    const rawHost = process.env.SMTP_HOST || "smtp.gmail.com";
+    const ipv4List = await resolveIpv4Addresses(rawHost);
+    transporterInstance = createTransporterForHost(ipv4List[0], rawHost);
   }
   return transporterInstance;
 };
@@ -334,7 +370,7 @@ export const sendEmployeeWelcomeEmail = async (
   options: EmployeeWelcomeEmailOptions,
 ): Promise<EmailSendResult> => {
   try {
-    const transporter = getMailTransporter();
+    const rawHost = process.env.SMTP_HOST || "smtp.gmail.com";
     const fromName = process.env.SMTP_FROM_NAME || "MKX HRMS Workplace";
     const fromEmail =
       process.env.SMTP_FROM_EMAIL || process.env.SMTP_USERNAME || "mkx.webs@gmail.com";
@@ -347,11 +383,49 @@ export const sendEmployeeWelcomeEmail = async (
       html: buildWelcomeEmailHtml(options),
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    logger.info(`Welcome email dispatched to ${options.email} (Message ID: ${info.messageId})`);
+    if (transporterInstance) {
+      try {
+        const info = await transporterInstance.sendMail(mailOptions);
+        logger.info(`Welcome email dispatched to ${options.email} (Message ID: ${info.messageId})`);
+        return {
+          success: true,
+          messageId: info.messageId,
+        };
+      } catch (cachedErr) {
+        logger.warn(
+          `Cached SMTP transporter failed, attempting re-resolution: ${String(cachedErr)}`,
+        );
+        transporterInstance = null;
+      }
+    }
+
+    const ipv4List = await resolveIpv4Addresses(rawHost);
+    let lastError: unknown = null;
+
+    for (const hostAddress of ipv4List) {
+      try {
+        const transporter = createTransporterForHost(hostAddress, rawHost);
+        const info = await transporter.sendMail(mailOptions);
+        transporterInstance = transporter;
+        logger.info(
+          `Welcome email dispatched to ${options.email} (Message ID: ${info.messageId}) [via IPv4: ${hostAddress}]`,
+        );
+        return {
+          success: true,
+          messageId: info.messageId,
+        };
+      } catch (err) {
+        lastError = err;
+        logger.warn(
+          `Failed sending welcome email via [${hostAddress}], checking alternative address...`,
+        );
+      }
+    }
+
+    logger.error(`Failed to send welcome email to ${options.email}:`, lastError);
     return {
-      success: true,
-      messageId: info.messageId,
+      success: false,
+      error: lastError,
     };
   } catch (error) {
     logger.error(`Failed to send welcome email to ${options.email}:`, error);
@@ -363,21 +437,47 @@ export const sendEmployeeWelcomeEmail = async (
 };
 
 /**
- * Verifies active SMTP connection and authentication credentials
+ * Verifies active SMTP connection and authentication credentials with automatic IPv4 fallback
  *
  * @returns Promise resolving to boolean indicating connection health
  */
 export const verifySmtpConnection = async (): Promise<boolean> => {
   try {
-    const transporter = getMailTransporter();
-    await transporter.verify();
-    logger.success("SMTP email service is connected and ready to dispatch emails");
-    return true;
-  } catch (error) {
+    const rawHost = process.env.SMTP_HOST || "smtp.gmail.com";
+    const ipv4List = await resolveIpv4Addresses(rawHost);
+
+    let connected = false;
+    let lastError: unknown = null;
+
+    for (const hostAddress of ipv4List) {
+      try {
+        const testTransporter = createTransporterForHost(hostAddress, rawHost);
+        await testTransporter.verify();
+        transporterInstance = testTransporter;
+        connected = true;
+        logger.success(
+          `SMTP email service is connected and ready to dispatch emails [via IPv4: ${hostAddress}]`,
+        );
+        break;
+      } catch (err) {
+        lastError = err;
+        logger.warn(
+          `SMTP verification attempt failed for [${hostAddress}], checking alternative address...`,
+        );
+      }
+    }
+
+    if (connected) {
+      return true;
+    }
+
     logger.warn(
       "SMTP email service verification failed. Check credentials or network connectivity.",
     );
-    logger.error("SMTP verification error:", error);
+    logger.error("SMTP verification error:", lastError);
+    return false;
+  } catch (error) {
+    logger.error("Unexpected error during SMTP verification:", error);
     return false;
   }
 };

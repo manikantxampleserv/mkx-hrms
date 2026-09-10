@@ -1,8 +1,16 @@
 import "dotenv/config";
+import dns from "node:dns";
 import express, { Express, Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+
+/**
+ * Configure default DNS result order to prioritize IPv4 over IPv6 across cloud host environments
+ */
+if (typeof dns.setDefaultResultOrder === "function") {
+  dns.setDefaultResultOrder("ipv4first");
+}
 import { prisma } from "./libraries/prisma";
 import { logger } from "./utils/logger";
 import { responseMiddleware } from "./middlewares/response.middleware";

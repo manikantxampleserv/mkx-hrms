@@ -40,10 +40,13 @@ export const logger = {
     );
   },
 
-  warn: (message: string) => {
+  warn: (message: string, meta?: unknown) => {
     console.warn(
       `${colors.dim}${getTime()}${colors.reset} ${colors.yellow}[WARN] ${colors.reset}${message}`,
     );
+    if (meta) {
+      console.warn(meta);
+    }
   },
 
   error: (message: string, error?: unknown) => {
