@@ -3,6 +3,7 @@ import { Employee, User, Candidate } from "@prisma/client";
 import { prisma } from "../../libraries/prisma";
 import { CreateEmployeeInput } from "../../types/employee.types";
 import { hashPassword } from "./auth.service";
+import { Prisma } from "@prisma/client";
 import { generateTemporaryPassword } from "./email.service";
 
 /**
@@ -76,6 +77,36 @@ export const parseNameComponents = (
 };
 
 /**
+ * Initialise leave balances for a newly created employee.
+ *
+ * @param tx - Prisma transaction client.
+ * @param employeeId - The numeric `id` of the employee record.
+ */
+const initialiseLeaveBalances = async (
+  tx: Prisma.TransactionClient,
+  employeeId: number,
+): Promise<void> => {
+  const activeLeaveTypes = await tx.leaveType.findMany({
+    where: { status: "Active" },
+    select: { id: true, days_per_year: true },
+  });
+
+  const currentYear = new Date().getFullYear();
+
+  await tx.leaveBalance.createMany({
+    data: activeLeaveTypes.map((lt) => ({
+      employee_id: employeeId,
+      leave_type_id: lt.id,
+      year: currentYear,
+      allocated: lt.days_per_year,
+      used: 0,
+      remaining: lt.days_per_year,
+    })),
+    skipDuplicates: true,
+  });
+};
+
+/**
  * Provision an Employee and automatically create the corresponding User
  * with identical credentials, profile attributes, and default notification preferences.
  *
@@ -140,6 +171,8 @@ export const createEmployeeWithUser = async (
         user_id: user.id,
       },
     });
+
+    await initialiseLeaveBalances(tx, employee.id);
 
     if (input.salary_structures && input.salary_structures.length > 0) {
       for (const structure of input.salary_structures) {
