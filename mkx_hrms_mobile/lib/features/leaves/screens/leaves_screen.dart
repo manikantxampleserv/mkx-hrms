@@ -59,7 +59,7 @@ class _LeavesScreenState extends State<LeavesScreen> {
           color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.all(10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -344,29 +344,26 @@ class _LeavesScreenState extends State<LeavesScreen> {
     );
   }
 
-  Widget _buildDynamicQuotaCards(
-    BuildContext context,
-    LeavesProvider leaves,
-  ) {
+  Widget _buildDynamicQuotaCards(BuildContext context, LeavesProvider leaves) {
     final quotas = leaves.balances?.list ?? [];
     final displayQuotas = quotas.isNotEmpty
         ? quotas
         : (leaves.masterLeaveTypes.isNotEmpty
-            ? leaves.masterLeaveTypes
-                .map(
-                  (type) => LeaveQuota(
-                    id: type.id,
-                    name: type.name,
-                    code: type.code,
-                    total: type.daysPerYear,
-                    used: 0,
-                    remaining: type.daysPerYear,
-                    color: type.color,
-                    isPaid: type.isPaid,
-                  ),
-                )
-                .toList()
-            : <LeaveQuota>[]);
+              ? leaves.masterLeaveTypes
+                    .map(
+                      (type) => LeaveQuota(
+                        id: type.id,
+                        name: type.name,
+                        code: type.code,
+                        total: type.daysPerYear,
+                        used: 0,
+                        remaining: type.daysPerYear,
+                        color: type.color,
+                        isPaid: type.isPaid,
+                      ),
+                    )
+                    .toList()
+              : <LeaveQuota>[]);
 
     if (displayQuotas.isEmpty) {
       return const SizedBox.shrink();
@@ -505,8 +502,9 @@ class _LeavesScreenState extends State<LeavesScreen> {
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 3,
-              backgroundColor:
-                  isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              backgroundColor: isDark
+                  ? AppColors.darkBorder
+                  : AppColors.lightBorder,
               valueColor: AlwaysStoppedAnimation<Color>(color),
             ),
           ),

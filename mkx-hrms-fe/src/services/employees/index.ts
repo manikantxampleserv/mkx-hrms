@@ -88,6 +88,27 @@ export interface Employee {
     status: string;
     created_at: string;
   } | null;
+  leave_balances?: LeaveBalance[];
+}
+
+/**
+ * A single leave balance record for an employee
+ */
+export interface LeaveBalance {
+  id: number;
+  leave_type_id: number;
+  year: number;
+  allocated: number;
+  used: number;
+  remaining: number;
+  leave_type?: {
+    id: number;
+    name: string;
+    code: string;
+    color: string | null;
+    is_paid: boolean;
+    days_per_year: number;
+  } | null;
 }
 
 /**

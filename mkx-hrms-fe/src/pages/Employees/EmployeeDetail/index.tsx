@@ -2,6 +2,7 @@ import {
   AccountBalanceWallet,
   ArrowBack,
   Badge,
+  BeachAccess,
   CalendarMonth,
   CheckCircle,
   Edit,
@@ -15,15 +16,15 @@ import {
   SupervisorAccount,
   Work,
 } from "@mui/icons-material";
-import { Avatar, Button, Chip, Tab, Tabs } from "@mui/material";
+import { Avatar, Button, Chip, Tab, Tabs, Skeleton } from "@mui/material";
 import React, { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   useGetEmployeeById,
   useUpdateEmployee,
   type Employee,
+  type LeaveBalance,
 } from "services/employees";
-import { AppLoader } from "shared/AppLoader";
 import { CustomDialog } from "shared/CustomDialog";
 import { StatsCard } from "shared/StatsCard";
 import { ManageEmployee, type ManageEmployeeFormValues } from "../ManageEmployee";
@@ -32,7 +33,7 @@ import { GenerateEmployeeSalaryDialog } from "./GenerateEmployeeSalaryDialog";
 /**
  * Tab identifiers supported on Employee Detail workspace
  */
-type DetailTab = "overview" | "compensation" | "payroll" | "shift";
+type DetailTab = "overview" | "compensation" | "payroll" | "shift" | "leaves";
 
 /**
  * Dedicated Employee Detail Page component providing comprehensive employee records,
@@ -52,11 +53,7 @@ export default function EmployeeDetail(): React.ReactElement {
     NonNullable<Employee["payrolls"]>[number] | null
   >(null);
 
-  const {
-    data: employeeResponse,
-    isLoading,
-    refetch: refetchEmployee,
-  } = useGetEmployeeById(id);
+  const { data: employeeResponse, isLoading, refetch: refetchEmployee } = useGetEmployeeById(id);
   const employee = employeeResponse?.data;
 
   const updateEmployee = useUpdateEmployee(employee?.id || "", () => {
@@ -67,33 +64,32 @@ export default function EmployeeDetail(): React.ReactElement {
   /**
    * Financial summary metrics calculated across employee's active salary structures
    */
-  const { totalGross, totalDeductions, netSalary, earningsCount, deductionsCount } =
-    useMemo(() => {
-      let gross = 0;
-      let deductions = 0;
-      let earn = 0;
-      let ded = 0;
+  const { totalGross, totalDeductions, netSalary, earningsCount, deductionsCount } = useMemo(() => {
+    let gross = 0;
+    let deductions = 0;
+    let earn = 0;
+    let ded = 0;
 
-      const structures = employee?.salary_structures || [];
-      structures.forEach((item) => {
-        const amt = Number(item.amount) || 0;
-        if (item.salary_structure?.is_deduction) {
-          deductions += amt;
-          ded += 1;
-        } else {
-          gross += amt;
-          earn += 1;
-        }
-      });
+    const structures = employee?.salary_structures || [];
+    structures.forEach((item) => {
+      const amt = Number(item.amount) || 0;
+      if (item.salary_structure?.is_deduction) {
+        deductions += amt;
+        ded += 1;
+      } else {
+        gross += amt;
+        earn += 1;
+      }
+    });
 
-      return {
-        totalGross: gross,
-        totalDeductions: deductions,
-        netSalary: Math.max(0, gross - deductions),
-        earningsCount: earn,
-        deductionsCount: ded,
-      };
-    }, [employee?.salary_structures]);
+    return {
+      totalGross: gross,
+      totalDeductions: deductions,
+      netSalary: Math.max(0, gross - deductions),
+      earningsCount: earn,
+      deductionsCount: ded,
+    };
+  }, [employee?.salary_structures]);
 
   /**
    * Handles saving edited profile from the drawer
@@ -121,8 +117,20 @@ export default function EmployeeDetail(): React.ReactElement {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <AppLoader />
+      <div className="flex flex-col gap-6 pb-12 animate-pulse">
+        {/* Hero Card Skeleton */}
+        <div className="p-6 rounded-[5px] bg-card border border-border shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <Skeleton variant="circular" width={80} height={80} />
+          <div className="flex flex-col gap-2 w-full">
+            <Skeleton width="30%" height={24} />
+            <Skeleton width="50%" height={20} />
+            <Skeleton width="40%" height={18} />
+          </div>
+        </div>
+        {/* Tabs Skeleton */}
+        <Skeleton variant="rectangular" width="100%" height={48} />
+        {/* Content Skeleton */}
+        <Skeleton variant="rectangular" width="100%" height={200} />
       </div>
     );
   }
@@ -149,46 +157,7 @@ export default function EmployeeDetail(): React.ReactElement {
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-12">
-      {/* Top Breadcrumb and Back Action */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs">
-          <Button
-            variant="text"
-            size="small"
-            onClick={() => navigate("/employees")}
-            startIcon={<ArrowBack className="!w-4 !h-4" />}
-            className="!text-muted-foreground hover:!text-foreground !text-xs !normal-case !p-0 !min-w-0 font-medium"
-          >
-            Employees
-          </Button>
-          <span className="text-muted-foreground/50">/</span>
-          <span className="text-foreground font-semibold">{employee.name}</span>
-          <span className="text-muted-foreground text-[11px]">({employee.id})</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => setIsEditDrawerOpen(true)}
-            startIcon={<Edit className="!w-4 !h-4" />}
-            className="!border-border !bg-secondary !text-muted-foreground hover:!text-foreground !text-xs !normal-case !rounded-[5px] !px-3.5 !py-1.5"
-          >
-            Edit Profile
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            onClick={() => setIsSalaryDialogOpen(true)}
-            startIcon={<Paid className="!w-4 !h-4" />}
-            className="!bg-primary !text-primary-foreground hover:!bg-primary/90 !text-xs !normal-case !font-semibold !rounded-[5px] !px-4 !py-1.5 shadow-sm"
-          >
-            Generate Salary
-          </Button>
-        </div>
-      </div>
-
+    <div className="flex flex-col gap-6">
       {/* Hero Profile Card */}
       <div className="p-6 rounded-[5px] bg-card border border-border shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
         <div className="flex items-center gap-5">
@@ -264,14 +233,14 @@ export default function EmployeeDetail(): React.ReactElement {
             Net Monthly Compensation
           </span>
           <span className="text-2xl font-black text-foreground tracking-tight">
-            ${netSalary.toLocaleString()}
+            ₹{netSalary.toLocaleString()}
           </span>
           <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-1 pt-1 border-t border-border/60">
             <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-              +${totalGross.toLocaleString()} Gross
+              +₹{totalGross.toLocaleString()} Gross
             </span>
             <span className="text-rose-500 font-medium">
-              -${totalDeductions.toLocaleString()} Ded.
+              -₹{totalDeductions.toLocaleString()} Ded.
             </span>
           </div>
         </div>
@@ -304,6 +273,11 @@ export default function EmployeeDetail(): React.ReactElement {
             label="Shift & Organization"
             className="!text-xs !normal-case !font-semibold !min-h-[44px]"
           />
+          <Tab
+            value="leaves"
+            label={`Leave Balances (${(employee.leave_balances || []).length})`}
+            className="!text-xs !normal-case !font-semibold !min-h-[44px]"
+          />
         </Tabs>
       </div>
 
@@ -314,7 +288,7 @@ export default function EmployeeDetail(): React.ReactElement {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatsCard
               title="Total Gross Pay"
-              value={`$${totalGross.toLocaleString()}`}
+              value={`₹${totalGross.toLocaleString()}`}
               subtext={`${earningsCount} active earning items`}
               iconColor="text-emerald-600"
               iconBg="bg-emerald-500/10"
@@ -322,7 +296,7 @@ export default function EmployeeDetail(): React.ReactElement {
             />
             <StatsCard
               title="Total Deductions"
-              value={`-$${totalDeductions.toLocaleString()}`}
+              value={`₹${totalDeductions.toLocaleString()}`}
               subtext={`${deductionsCount} deduction items`}
               iconColor="text-rose-500"
               iconBg="bg-rose-500/10"
@@ -330,7 +304,7 @@ export default function EmployeeDetail(): React.ReactElement {
             />
             <StatsCard
               title="Net Monthly Salary"
-              value={`$${netSalary.toLocaleString()}`}
+              value={`₹${netSalary.toLocaleString()}`}
               subtext="Base take-home estimate"
               iconColor="text-primary"
               iconBg="bg-primary/10"
@@ -356,11 +330,15 @@ export default function EmployeeDetail(): React.ReactElement {
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div>
                   <span className="text-muted-foreground block text-[11px]">Full Name</span>
-                  <span className="font-semibold text-foreground mt-0.5 block">{employee.name}</span>
+                  <span className="font-semibold text-foreground mt-0.5 block">
+                    {employee.name}
+                  </span>
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[11px]">Email Address</span>
-                  <span className="font-semibold text-foreground mt-0.5 block">{employee.email}</span>
+                  <span className="font-semibold text-foreground mt-0.5 block">
+                    {employee.email}
+                  </span>
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[11px]">Phone Number</span>
@@ -375,7 +353,9 @@ export default function EmployeeDetail(): React.ReactElement {
                   </span>
                 </div>
                 <div className="col-span-2">
-                  <span className="text-muted-foreground block text-[11px]">Residential Address</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Residential Address
+                  </span>
                   <span className="font-semibold text-foreground mt-0.5 block flex items-start gap-1">
                     <LocationOn className="!w-3.5 !h-3.5 text-muted-foreground/60 shrink-0 mt-0.5" />
                     {employee.address || "No address on record"}
@@ -398,8 +378,12 @@ export default function EmployeeDetail(): React.ReactElement {
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">Role / Designation</span>
-                  <span className="font-semibold text-foreground mt-0.5 block">{employee.role}</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    Role / Designation
+                  </span>
+                  <span className="font-semibold text-foreground mt-0.5 block">
+                    {employee.role}
+                  </span>
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[11px]">Work Shift</span>
@@ -421,7 +405,9 @@ export default function EmployeeDetail(): React.ReactElement {
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[11px]">User Account Linked</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    User Account Linked
+                  </span>
                   <span className="font-semibold text-foreground mt-0.5 block">
                     {employee.user ? (
                       <span className="text-emerald-600 dark:text-emerald-400 font-medium">
@@ -447,7 +433,8 @@ export default function EmployeeDetail(): React.ReactElement {
                 Assigned Salary Structures & Allowances
               </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Itemized breakdown of fixed earnings, recurring allowances, and mandatory deductions.
+                Itemized breakdown of fixed earnings, recurring allowances, and mandatory
+                deductions.
               </p>
             </div>
             <Button
@@ -470,18 +457,18 @@ export default function EmployeeDetail(): React.ReactElement {
                     <th className="py-3 px-4 min-w-[100px]">Category</th>
                     <th className="py-3 px-4 min-w-[100px]">Tax Status</th>
                     <th className="py-3 px-4 min-w-[110px]">Calculation</th>
-                    <th className="py-3 px-4 text-right min-w-[130px]">Monthly Amount ($)</th>
+                    <th className="py-3 px-4 text-right min-w-[130px]">Monthly Amount (₹)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {(!employee.salary_structures || employee.salary_structures.length === 0) ? (
+                  {!employee.salary_structures || employee.salary_structures.length === 0 ? (
                     <tr>
                       <td colSpan={5} className="py-8 text-center text-xs text-muted-foreground">
                         <AccountBalanceWallet className="!w-10 !h-10 text-muted-foreground/30 mx-auto mb-2" />
                         <span className="font-medium block">No salary structures assigned yet</span>
                         <span className="text-[11px] text-muted-foreground/70 block mt-0.5">
-                          Click &quot;Modify Structure Items&quot; above to configure compensation for
-                          this employee.
+                          Click &quot;Modify Structure Items&quot; above to configure compensation
+                          for this employee.
                         </span>
                       </td>
                     </tr>
@@ -492,10 +479,7 @@ export default function EmployeeDetail(): React.ReactElement {
                       const isBase = master?.is_base_salary;
 
                       return (
-                        <tr
-                          key={idx}
-                          className="hover:bg-secondary/20 transition-colors text-xs"
-                        >
+                        <tr key={idx} className="hover:bg-secondary/20 transition-colors text-xs">
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 rounded-[5px] bg-secondary border border-border flex items-center justify-center font-bold text-xs text-foreground shrink-0">
@@ -534,7 +518,7 @@ export default function EmployeeDetail(): React.ReactElement {
                             {master?.calculation_type || "Fixed"}
                           </td>
                           <td className="py-3 px-4 text-right font-semibold text-foreground">
-                            ${Number(item.amount).toLocaleString()}
+                            ₹{Number(item.amount).toLocaleString()}
                           </td>
                         </tr>
                       );
@@ -549,19 +533,19 @@ export default function EmployeeDetail(): React.ReactElement {
                 <div>
                   <span className="text-[11px] text-muted-foreground block">Total Gross Pay</span>
                   <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
-                    ${totalGross.toLocaleString()}
+                    ₹{totalGross.toLocaleString()}
                   </span>
                 </div>
                 <div>
                   <span className="text-[11px] text-muted-foreground block">Total Deductions</span>
                   <span className="font-bold text-rose-600 dark:text-rose-400 text-sm">
-                    -${totalDeductions.toLocaleString()}
+                    -₹{totalDeductions.toLocaleString()}
                   </span>
                 </div>
                 <div>
                   <span className="text-[11px] text-muted-foreground block">Net Monthly Pay</span>
                   <span className="font-bold text-primary text-sm">
-                    ${netSalary.toLocaleString()}
+                    ₹{netSalary.toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -608,14 +592,14 @@ export default function EmployeeDetail(): React.ReactElement {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {(!employee.payrolls || employee.payrolls.length === 0) ? (
+                  {!employee.payrolls || employee.payrolls.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="py-8 text-center text-xs text-muted-foreground">
                         <ReceiptLong className="!w-10 !h-10 text-muted-foreground/30 mx-auto mb-2" />
                         <span className="font-medium block">No payroll records generated yet</span>
                         <span className="text-[11px] text-muted-foreground/70 block mt-0.5">
-                          Click &quot;Generate New Salary&quot; above to calculate and issue a payslip
-                          for this employee.
+                          Click &quot;Generate New Salary&quot; above to calculate and issue a
+                          payslip for this employee.
                         </span>
                       </td>
                     </tr>
@@ -637,7 +621,9 @@ export default function EmployeeDetail(): React.ReactElement {
                         <td className="py-3 px-4">
                           <span
                             className={`font-medium ${
-                              (payroll.lop_days || 0) > 0 ? "text-rose-500" : "text-muted-foreground"
+                              (payroll.lop_days || 0) > 0
+                                ? "text-rose-500"
+                                : "text-muted-foreground"
                             }`}
                           >
                             {payroll.lop_days || 0} days
@@ -660,8 +646,8 @@ export default function EmployeeDetail(): React.ReactElement {
                               payroll.status === "Paid"
                                 ? "success"
                                 : payroll.status === "Processed"
-                                ? "info"
-                                : "warning"
+                                  ? "info"
+                                  : "warning"
                             }
                             variant="outlined"
                             className="!h-5 !text-[11px] !font-medium"
@@ -747,6 +733,131 @@ export default function EmployeeDetail(): React.ReactElement {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB 5: LEAVE BALANCES */}
+      {activeTab === "leaves" && (
+        <div className="flex flex-col gap-4">
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Leave Balance Summary</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Current year ({new Date().getFullYear()}) leave allocations, utilisation and remaining
+              entitlements.
+            </p>
+          </div>
+
+          {!employee.leave_balances || employee.leave_balances.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3 rounded-[5px] border border-dashed border-border bg-card">
+              <BeachAccess className="!w-12 !h-12 text-muted-foreground/30" />
+              <span className="text-sm font-medium text-foreground">No leave balances found</span>
+              <span className="text-xs text-muted-foreground text-center max-w-xs">
+                Leave balances are automatically created when an employee is provisioned. Run the
+                backfill script if this employee was created before the feature was added.
+              </span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {(employee.leave_balances as LeaveBalance[]).map((lb) => {
+                const usedPct =
+                  lb.allocated > 0 ? Math.min((lb.used / lb.allocated) * 100, 100) : 0;
+                const accentColor = lb.leave_type?.color || "#4f46e5";
+                const circumference = 2 * Math.PI * 26;
+
+                return (
+                  <div
+                    key={lb.id}
+                    className="p-5 rounded-[5px] bg-card border border-border flex flex-col gap-4 hover:shadow-md transition-shadow"
+                  >
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs font-bold text-foreground leading-tight">
+                          {lb.leave_type?.name || `Leave Type #${lb.leave_type_id}`}
+                        </span>
+                        <span className="text-[10px] font-mono text-muted-foreground">
+                          {lb.leave_type?.code || "—"}
+                        </span>
+                      </div>
+                      <span
+                        className="text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0"
+                        style={{
+                          backgroundColor: `${accentColor}18`,
+                          color: accentColor,
+                          borderColor: `${accentColor}40`,
+                        }}
+                      >
+                        {lb.leave_type?.is_paid ? "Paid" : "Unpaid"}
+                      </span>
+                    </div>
+
+                    {/* Circular ring progress */}
+                    <div className="flex items-center justify-center py-1">
+                      <div className="relative flex items-center justify-center w-20 h-20">
+                        <svg className="absolute inset-0 -rotate-90" width="80" height="80">
+                          {/* Track */}
+                          <circle
+                            cx="40"
+                            cy="40"
+                            r="26"
+                            fill="none"
+                            strokeWidth="6"
+                            className="stroke-secondary"
+                          />
+                          {/* Used segment */}
+                          <circle
+                            cx="40"
+                            cy="40"
+                            r="26"
+                            fill="none"
+                            strokeWidth="6"
+                            stroke={accentColor}
+                            strokeLinecap="round"
+                            strokeDasharray={`${(usedPct / 100) * circumference} ${circumference}`}
+                          />
+                        </svg>
+                        <div className="flex flex-col items-center leading-none">
+                          <span className="text-base font-black text-foreground">
+                            {lb.remaining}
+                          </span>
+                          <span className="text-[9px] text-muted-foreground mt-0.5">left</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Stats row */}
+                    <div className="grid grid-cols-3 gap-1 pt-2 border-t border-border/60 text-center">
+                      <div>
+                        <span className="text-[10px] text-muted-foreground block">Allocated</span>
+                        <span className="text-xs font-bold text-foreground">{lb.allocated}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-muted-foreground block">Used</span>
+                        <span className="text-xs font-bold text-rose-500">{lb.used}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-muted-foreground block">Remaining</span>
+                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                          {lb.remaining}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Thin progress bar */}
+                    <div className="w-full h-1 rounded-full bg-secondary overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${usedPct}%`, backgroundColor: accentColor }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground -mt-2 text-right">
+                      {usedPct.toFixed(0)}% utilised · Year {lb.year}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
@@ -836,7 +947,7 @@ export default function EmployeeDetail(): React.ReactElement {
                             : "text-emerald-600 dark:text-emerald-400 font-medium"
                         }
                       >
-                        {item.category === "Deduction" ? "-" : ""}${item.amount.toLocaleString()}
+                        {item.category === "Deduction" ? "-" : ""}₹{item.amount.toLocaleString()}
                       </span>
                     </div>
                   ))}

@@ -64,7 +64,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.all(10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -213,7 +213,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildDivider(isDark),
                     _buildInfoTile(
                       icon: Icons.alternate_email_rounded,
-                      label: 'Corporate Email',
+                      label: 'Email',
                       value: user?.email ?? '--',
                       isDark: isDark,
                     ),
@@ -243,8 +243,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: Icons.schedule_outlined,
                       label: 'Work Shift',
                       value: user?.shiftName != null
-                          ? '${user!.shiftName}${user.shiftTime != null ? ' (${user.shiftTime})' : ''}'
-                          : 'General (09:00 - 18:00)',
+                          ? '${user!.shiftName}'
+                          : 'General',
                       isDark: isDark,
                     ),
                   ],
@@ -529,21 +529,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final displayQuotas = quotas.isNotEmpty
         ? quotas
         : (leaves.masterLeaveTypes.isNotEmpty
-            ? leaves.masterLeaveTypes
-                .map(
-                  (type) => LeaveQuota(
-                    id: type.id,
-                    name: type.name,
-                    code: type.code,
-                    total: type.daysPerYear,
-                    used: 0,
-                    remaining: type.daysPerYear,
-                    color: type.color,
-                    isPaid: type.isPaid,
-                  ),
-                )
-                .toList()
-            : <LeaveQuota>[]);
+              ? leaves.masterLeaveTypes
+                    .map(
+                      (type) => LeaveQuota(
+                        id: type.id,
+                        name: type.name,
+                        code: type.code,
+                        total: type.daysPerYear,
+                        used: 0,
+                        remaining: type.daysPerYear,
+                        color: type.color,
+                        isPaid: type.isPaid,
+                      ),
+                    )
+                    .toList()
+              : <LeaveQuota>[]);
 
     if (displayQuotas.isEmpty) {
       return Container(
@@ -620,7 +620,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            if (quota.code != null && quota.code!.isNotEmpty) ...[
+                            if (quota.code != null &&
+                                quota.code!.isNotEmpty) ...[
                               const SizedBox(width: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(

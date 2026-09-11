@@ -24,13 +24,12 @@ class PayslipDetailModal extends StatelessWidget {
           ),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      padding: const EdgeInsets.all(15),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Handle bar
             Center(
               child: Container(
                 width: 36,
@@ -62,7 +61,9 @@ class PayslipDetailModal extends StatelessWidget {
                       slip.monthLabel,
                       style: GoogleFonts.inter(
                         fontSize: 13,
-                        color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+                        color: isDark
+                            ? AppColors.darkMuted
+                            : AppColors.lightMuted,
                       ),
                     ),
                   ],
@@ -76,7 +77,9 @@ class PayslipDetailModal extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSecondary : AppColors.lightSecondary,
+                color: isDark
+                    ? AppColors.darkSecondary
+                    : AppColors.lightSecondary,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
@@ -90,7 +93,9 @@ class PayslipDetailModal extends StatelessWidget {
                     style: GoogleFonts.inter(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+                      color: isDark
+                          ? AppColors.darkMuted
+                          : AppColors.lightMuted,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -108,7 +113,9 @@ class PayslipDetailModal extends StatelessWidget {
                     'Credited on ${slip.payDate}',
                     style: GoogleFonts.inter(
                       fontSize: 12,
-                      color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+                      color: isDark
+                          ? AppColors.darkMuted
+                          : AppColors.lightMuted,
                     ),
                   ),
                 ],
@@ -128,10 +135,18 @@ class PayslipDetailModal extends StatelessWidget {
             /// Attendance & Leave Calculation
             _buildSectionHeader('Attendance & Calendar'),
             const SizedBox(height: 8),
-            _buildRow('Working Days in Month', '${slip.workingDays} days', isDark),
+            _buildRow(
+              'Working Days in Month',
+              '${slip.workingDays} days',
+              isDark,
+            ),
             _buildRow('Paid Days', '${slip.paidDays} days', isDark),
             if (slip.lopDays > 0)
-              _buildRow('Loss of Pay (Unpaid Leave)', '${slip.lopDays} days', isDark),
+              _buildRow(
+                'Loss of Pay (Unpaid Leave)',
+                '${slip.lopDays} days',
+                isDark,
+              ),
             const SizedBox(height: 16),
 
             /// Earnings Breakdown
@@ -140,21 +155,38 @@ class PayslipDetailModal extends StatelessWidget {
             if (slip.items.any((i) => i.category == 'Earning'))
               ...slip.items
                   .where((i) => i.category == 'Earning')
-                  .map((it) => _buildRow(it.name, '+\$${it.amount.toStringAsFixed(2)}', isDark))
+                  .map(
+                    (it) => _buildRow(
+                      it.name,
+                      '+\$${it.amount.toStringAsFixed(2)}',
+                      isDark,
+                    ),
+                  )
             else ...[
               _buildRow('Base Salary', slip.formattedBase, isDark),
-              _buildRow('Allowances & Benefits', slip.formattedAllowance, isDark),
+              _buildRow(
+                'Allowances & Benefits',
+                slip.formattedAllowance,
+                isDark,
+              ),
             ],
             const SizedBox(height: 16),
 
             /// Deductions Breakdown
-            if (slip.items.any((i) => i.category == 'Deduction') || slip.totalDeductions > 0) ...[
+            if (slip.items.any((i) => i.category == 'Deduction') ||
+                slip.totalDeductions > 0) ...[
               _buildSectionHeader('Deductions & Statutory Taxes'),
               const SizedBox(height: 8),
               if (slip.items.any((i) => i.category == 'Deduction'))
                 ...slip.items
                     .where((i) => i.category == 'Deduction')
-                    .map((it) => _buildRow(it.name, '-\$${it.amount.toStringAsFixed(2)}', isDark))
+                    .map(
+                      (it) => _buildRow(
+                        it.name,
+                        '-\$${it.amount.toStringAsFixed(2)}',
+                        isDark,
+                      ),
+                    )
               else
                 _buildRow('Total Deductions', slip.formattedDeductions, isDark),
               const SizedBox(height: 16),
@@ -213,10 +245,7 @@ class PayslipDetailModal extends StatelessWidget {
           ),
           Text(
             value,
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
+            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ],
       ),

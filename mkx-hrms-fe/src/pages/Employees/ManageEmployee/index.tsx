@@ -600,7 +600,7 @@ export const ManageEmployee: React.FC<ManageEmployeeProps> = ({
                     <th className="py-3 px-3.5 min-w-[100px]">Category</th>
                     <th className="py-3 px-3.5 min-w-[100px]">Tax Status</th>
                     <th className="py-3 px-3.5 min-w-[110px]">Calculation</th>
-                    <th className="py-3 px-3.5 min-w-[130px]">Monthly Amount ($)</th>
+                    <th className="py-3 px-3.5 min-w-[130px]">Monthly Amount</th>
                     <th className="py-3 px-3.5 text-center w-16">Actions</th>
                   </tr>
                 </thead>
@@ -609,7 +609,9 @@ export const ManageEmployee: React.FC<ManageEmployeeProps> = ({
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-xs text-muted-foreground">
                         <AccountBalanceWallet className="!w-10 !h-10 text-muted-foreground/30 mx-auto mb-2" />
-                        <span className="font-medium block">No compensation items assigned yet</span>
+                        <span className="font-medium block">
+                          No compensation items assigned yet
+                        </span>
                         <span className="text-[11px] text-muted-foreground/70 block mt-0.5">
                           Click &quot;+ Add Item&quot; above to assign a salary structure.
                         </span>
@@ -624,18 +626,13 @@ export const ManageEmployee: React.FC<ManageEmployeeProps> = ({
                       const isBase = master?.is_base_salary;
 
                       return (
-                        <tr
-                          key={idx}
-                          className="hover:bg-secondary/20 transition-colors text-xs"
-                        >
+                        <tr key={idx} className="hover:bg-secondary/20 transition-colors text-xs">
                           <td className="py-2.5 px-3.5">
                             <Select
                               name={`salary_structure_${idx}`}
                               options={structureOptions}
                               value={row.salary_structure_id}
-                              onValueChange={(val) =>
-                                handleRowStructureChange(idx, Number(val))
-                              }
+                              onValueChange={(val) => handleRowStructureChange(idx, Number(val))}
                               size="small"
                               placeholder="Select component"
                             />

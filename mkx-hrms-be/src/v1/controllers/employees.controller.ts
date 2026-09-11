@@ -395,7 +395,19 @@ export const updateEmployee = async (
 ): Promise<void> => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const { name, email, role, department, status, manager, join_date, birth_date, address, phone, avatar } = req.body;
+    const {
+      name,
+      email,
+      role,
+      department,
+      status,
+      manager,
+      join_date,
+      birth_date,
+      address,
+      phone,
+      avatar,
+    } = req.body;
 
     const existing = await prisma.employee.findFirst({
       where: {
@@ -465,7 +477,11 @@ export const updateEmployee = async (
           status: status ?? existing.status,
           manager_id: manager_id !== undefined ? manager_id : existing.manager_id,
           join_date: join_date ? new Date(join_date) : existing.join_date,
-          birth_date: birth_date ? new Date(birth_date) : birth_date === null ? null : existing.birth_date,
+          birth_date: birth_date
+            ? new Date(birth_date)
+            : birth_date === null
+              ? null
+              : existing.birth_date,
           address: address !== undefined ? address : existing.address,
           phone: phone !== undefined ? phone : existing.phone,
           avatar: avatar !== undefined ? avatar : existing.avatar,
@@ -590,6 +606,23 @@ export const getEmployeeById = async (
           },
           take: 12,
         },
+        leave_balances: {
+          include: {
+            leave_type_rel: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                color: true,
+                is_paid: true,
+                days_per_year: true,
+              },
+            },
+          },
+          orderBy: {
+            leave_type_id: "asc",
+          },
+        },
       },
     });
 
@@ -635,9 +668,9 @@ export const getEmployeeById = async (
           db_id: p.id,
           month: p.month,
           year: p.year,
-          gross_pay: `$${Number(p.gross_pay).toLocaleString()}`,
-          total_deductions: `$${Number(p.total_deductions).toLocaleString()}`,
-          net_pay: `$${Number(p.net_pay).toLocaleString()}`,
+          gross_pay: `₹${Number(p.gross_pay).toLocaleString()}`,
+          total_deductions: `₹${Number(p.total_deductions).toLocaleString()}`,
+          net_pay: `₹${Number(p.net_pay).toLocaleString()}`,
           raw_gross: Number(p.gross_pay),
           raw_deductions: Number(p.total_deductions),
           raw_net: Number(p.net_pay),
@@ -649,6 +682,24 @@ export const getEmployeeById = async (
           pay_date: p.pay_date ? p.pay_date.toISOString().split("T")[0] : "",
         })),
         user: employee.user,
+        leave_balances: employee.leave_balances.map((lb) => ({
+          id: lb.id,
+          leave_type_id: lb.leave_type_id,
+          year: lb.year,
+          allocated: lb.allocated,
+          used: lb.used,
+          remaining: lb.remaining,
+          leave_type: lb.leave_type_rel
+            ? {
+                id: lb.leave_type_rel.id,
+                name: lb.leave_type_rel.name,
+                code: lb.leave_type_rel.code,
+                color: lb.leave_type_rel.color,
+                is_paid: lb.leave_type_rel.is_paid,
+                days_per_year: lb.leave_type_rel.days_per_year,
+              }
+            : null,
+        })),
       },
     });
   } catch (err) {
@@ -735,7 +786,9 @@ export const exportEmployees = async (
       Email: emp.email,
       Role: emp.role_rel?.name || "Staff",
       Department: emp.department_rel?.name || "General",
-      Shift: emp.shift_rel ? `${emp.shift_rel.name} (${emp.shift_rel.start_time} - ${emp.shift_rel.end_time})` : "None",
+      Shift: emp.shift_rel
+        ? `${emp.shift_rel.name} (${emp.shift_rel.start_time} - ${emp.shift_rel.end_time})`
+        : "None",
       Status: emp.status,
       Manager: emp.manager?.name || "None",
       "Join Date": emp.join_date ? emp.join_date.toISOString().split("T")[0] : "",
@@ -987,4 +1040,3 @@ export const assignEmployeeSalaryStructures = async (
     next(err);
   }
 };
-

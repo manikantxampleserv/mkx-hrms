@@ -6,7 +6,10 @@ import '../../leaves/screens/leaves_screen.dart';
 import '../../payroll/screens/payroll_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 
-/// Modern Bottom Navigation Shell housing the 4 primary employee modules
+/// Gmail-style Bottom Navigation Shell housing the 4 primary employee modules.
+/// Uses Material 3's NavigationBar with a pill-shaped selection indicator,
+/// no top border/divider, and a soft elevation shadow — matching Gmail's
+/// bottom nav look and feel.
 class MainShellScreen extends StatefulWidget {
   const MainShellScreen({super.key});
 
@@ -24,118 +27,113 @@ class _MainShellScreenState extends State<MainShellScreen> {
     ProfileScreen(),
   ];
 
+  static const List<_NavItemData> _items = [
+    _NavItemData(
+      label: 'Punch In',
+      icon: Icons.fingerprint_rounded,
+      activeIcon: Icons.fingerprint_rounded,
+    ),
+    _NavItemData(
+      label: 'Leaves',
+      icon: Icons.event_note_outlined,
+      activeIcon: Icons.event_note_rounded,
+    ),
+    _NavItemData(
+      label: 'Payslips',
+      icon: Icons.receipt_long_outlined,
+      activeIcon: Icons.receipt_long_rounded,
+    ),
+    _NavItemData(
+      label: 'Profile',
+      icon: Icons.person_outline_rounded,
+      activeIcon: Icons.person_rounded,
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final surfaceColor = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final activeColor = isDark ? AppColors.darkPrimary : AppColors.lightPrimary;
+    final inactiveColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
+    final indicatorColor =
+        (isDark ? AppColors.darkPrimary : AppColors.lightPrimary).withValues(
+          alpha: isDark ? 0.24 : 0.14,
+        );
+
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: isDark ? AppColors.darkCard : AppColors.lightCard,
-          border: Border(
-            top: BorderSide(
-              color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-              width: 1,
-            ),
-          ),
+          color: surfaceColor,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
+              color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
             ),
           ],
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(
-                  index: 0,
-                  label: 'Punch In',
-                  icon: Icons.fingerprint_rounded,
-                  activeIcon: Icons.fingerprint_rounded,
-                  isDark: isDark,
-                ),
-                _buildNavItem(
-                  index: 1,
-                  label: 'Leaves',
-                  icon: Icons.event_note_outlined,
-                  activeIcon: Icons.event_note_rounded,
-                  isDark: isDark,
-                ),
-                _buildNavItem(
-                  index: 2,
-                  label: 'Payslips',
-                  icon: Icons.receipt_long_outlined,
-                  activeIcon: Icons.receipt_long_rounded,
-                  isDark: isDark,
-                ),
-                _buildNavItem(
-                  index: 3,
-                  label: 'Profile',
-                  icon: Icons.person_outline_rounded,
-                  activeIcon: Icons.person_rounded,
-                  isDark: isDark,
-                ),
-              ],
+          top: false,
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              navigationBarTheme: NavigationBarThemeData(
+                height: 68,
+                backgroundColor: surfaceColor,
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+                indicatorColor: indicatorColor,
+                indicatorShape: const StadiumBorder(),
+                labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                  final selected = states.contains(WidgetState.selected);
+                  return GoogleFonts.inter(
+                    fontSize: 11.5,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected ? activeColor : inactiveColor,
+                  );
+                }),
+                iconTheme: WidgetStateProperty.resolveWith((states) {
+                  final selected = states.contains(WidgetState.selected);
+                  return IconThemeData(
+                    size: 24,
+                    color: selected ? activeColor : inactiveColor,
+                  );
+                }),
+              ),
+            ),
+            child: NavigationBar(
+              selectedIndex: _currentIndex,
+              onDestinationSelected: (index) =>
+                  setState(() => _currentIndex = index),
+              animationDuration: const Duration(milliseconds: 350),
+              labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+              destinations: _items
+                  .map(
+                    (item) => NavigationDestination(
+                      icon: Icon(item.icon),
+                      selectedIcon: Icon(item.activeIcon),
+                      label: item.label,
+                    ),
+                  )
+                  .toList(),
             ),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildNavItem({
-    required int index,
-    required String label,
-    required IconData icon,
-    required IconData activeIcon,
-    required bool isDark,
-  }) {
-    final isSelected = _currentIndex == index;
+class _NavItemData {
+  final String label;
+  final IconData icon;
+  final IconData activeIcon;
 
-    final activeColor = isDark ? AppColors.darkPrimary : AppColors.lightPrimary;
-    final inactiveColor = isDark ? AppColors.darkMuted : AppColors.lightMuted;
-
-    return InkWell(
-      onTap: () => setState(() => _currentIndex = index),
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? AppColors.darkSecondary : AppColors.lightSecondary)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              size: 22,
-              color: isSelected ? activeColor : inactiveColor,
-            ),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? activeColor : inactiveColor,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  const _NavItemData({
+    required this.label,
+    required this.icon,
+    required this.activeIcon,
+  });
 }

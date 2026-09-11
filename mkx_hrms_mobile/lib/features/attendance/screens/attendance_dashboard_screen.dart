@@ -116,9 +116,11 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
     final totalRemainingLeaves = leaves.balances?.list.isNotEmpty == true
         ? leaves.balances!.list.fold<int>(0, (sum, q) => sum + q.remaining)
         : (leaves.masterLeaveTypes.isNotEmpty
-            ? leaves.masterLeaveTypes
-                .fold<int>(0, (sum, t) => sum + t.daysPerYear)
-            : 0);
+              ? leaves.masterLeaveTypes.fold<int>(
+                  0,
+                  (sum, t) => sum + t.daysPerYear,
+                )
+              : 0);
     final pendingLeaveRequests = leaves.balances?.pendingRequests ?? 0;
 
     return Scaffold(
@@ -128,7 +130,7 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
           color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.all(10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -325,8 +327,9 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
                       return Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color:
-                              isDark ? AppColors.darkCard : AppColors.lightCard,
+                          color: isDark
+                              ? AppColors.darkCard
+                              : AppColors.lightCard,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isDark
@@ -350,7 +353,9 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    AppDateUtils.formatDate(item.date).split(' ')[0],
+                                    AppDateUtils.formatDate(
+                                      item.date,
+                                    ).split(' ')[0],
                                     style: GoogleFonts.inter(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,

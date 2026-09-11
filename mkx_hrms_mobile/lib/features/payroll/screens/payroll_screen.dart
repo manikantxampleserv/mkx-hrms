@@ -57,11 +57,10 @@ class _PayrollScreenState extends State<PayrollScreen> {
           color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: const EdgeInsets.all(10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 Text(
                   'Salary & Payslips',
                   style: GoogleFonts.inter(
@@ -83,7 +82,6 @@ class _PayrollScreenState extends State<PayrollScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Latest Salary Highlight Card
                 if (latest != null)
                   Container(
                     padding: const EdgeInsets.all(20),
@@ -91,7 +89,9 @@ class _PayrollScreenState extends State<PayrollScreen> {
                       color: isDark ? AppColors.darkCard : AppColors.lightCard,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                        color: isDark
+                            ? AppColors.darkBorder
+                            : AppColors.lightBorder,
                       ),
                     ),
                     child: Column(
@@ -252,8 +252,9 @@ class _PayrollScreenState extends State<PayrollScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color:
-                                isDark ? AppColors.darkCard : AppColors.lightCard,
+                            color: isDark
+                                ? AppColors.darkCard
+                                : AppColors.lightCard,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: isDark
