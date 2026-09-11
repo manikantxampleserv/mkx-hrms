@@ -24,9 +24,9 @@ import {
   Select,
 } from "@mui/material";
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { FadeUpItem, StaggerContainer } from "shared/animations";
 import { ArrowMenu } from "shared/ArrowMenu";
-import { CustomDialog } from "shared/CustomDialog";
 import { DataTable, type ColumnDef } from "shared/DataTable";
 import { CustomDateRangePicker } from "shared/DatePicker";
 import { StatsCard } from "shared/StatsCard";
@@ -46,7 +46,11 @@ import {
   useUpdateEmployee,
   type Employee,
 } from "services/employees";
-import { useGetMasterDepartments, useGetMasterRoles } from "services/masters";
+import {
+  useGetMasterDepartments,
+  useGetMasterRoles,
+  useGetMasterWorkShifts,
+} from "services/masters";
 
 /**
  * Filter tab definitions for the toolbar
@@ -150,7 +154,7 @@ const getEmployeeColumns = (
         </div>
       </div>
     ),
-    width: "28%",
+    width: "25%",
   },
   {
     header: "ROLE",
@@ -160,7 +164,19 @@ const getEmployeeColumns = (
         <span className="text-xs text-muted-foreground mt-0.5">{row.department}</span>
       </div>
     ),
-    width: "22%",
+    width: "18%",
+  },
+  {
+    header: "SHIFT",
+    cell: (row) => (
+      <div className="flex flex-col">
+        <span className="font-medium text-foreground text-xs">{row.shift || "General Shift"}</span>
+        {row.shift_time && (
+          <span className="text-[11px] text-muted-foreground mt-0.5">{row.shift_time}</span>
+        )}
+      </div>
+    ),
+    width: "15%",
   },
   {
     header: "STATUS",
@@ -188,17 +204,17 @@ const getEmployeeColumns = (
         />
       );
     },
-    width: "16%",
+    width: "12%",
   },
   {
     header: "MANAGER",
     cell: (row) => <span className="text-sm text-muted-foreground">{row.manager}</span>,
-    width: "16%",
+    width: "15%",
   },
   {
     header: "JOIN DATE",
     cell: (row) => <span className="text-sm text-muted-foreground">{row.join_date}</span>,
-    width: "13%",
+    width: "10%",
   },
   {
     header: "ACTION",
@@ -212,9 +228,9 @@ const getEmployeeColumns = (
  * Employees page component providing complete workforce directory management.
  */
 export default function Employees() {
+  const navigate = useNavigate();
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const [viewingEmployee, setViewingEmployee] = useState<Employee | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
   const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
@@ -222,6 +238,7 @@ export default function Employees() {
   const [departmentFilter, setDepartmentFilter] = useState<string>("All");
   const [roleFilter, setRoleFilter] = useState<string>("All");
   const [managerFilter, setManagerFilter] = useState<string>("All");
+  const [shiftFilter, setShiftFilter] = useState<string>("All");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
 
@@ -236,6 +253,7 @@ export default function Employees() {
     department: departmentFilter,
     role: roleFilter,
     manager: managerFilter,
+    shift: shiftFilter,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
   });
@@ -244,8 +262,24 @@ export default function Employees() {
   const filterOptionsData = filtersResponse?.data;
   const { data: masterDepartmentsResponse } = useGetMasterDepartments();
   const { data: masterRolesResponse } = useGetMasterRoles();
+  const { data: masterWorkShiftsResponse } = useGetMasterWorkShifts();
 
   const employees = useMemo(() => employeesResponse?.data || [], [employeesResponse]);
+
+  /**
+   * Dynamic work shifts fetched strictly from Master Work Shifts
+   */
+  const uniqueShifts = useMemo(() => {
+    const shifts = masterWorkShiftsResponse?.data || [];
+    const activeShifts = shifts.filter((s) => s.status === "Active").map((s) => s.name);
+    if (activeShifts.length > 0) {
+      if (shiftFilter && shiftFilter !== "All" && !activeShifts.includes(shiftFilter)) {
+        return [...activeShifts, shiftFilter].sort();
+      }
+      return activeShifts.sort();
+    }
+    return (filterOptionsData?.shifts || []).map((s) => s.name).sort();
+  }, [masterWorkShiftsResponse?.data, filterOptionsData?.shifts, shiftFilter]);
 
   /**
    * Dynamic list of departments fetched strictly from Master Departments
@@ -328,10 +362,15 @@ export default function Employees() {
       email: empValues.email,
       role_id: Number(empValues.role_id),
       department_id: Number(empValues.department_id),
+      shift_id: empValues.shift_id ? Number(empValues.shift_id) : null,
       manager_id: empValues.manager_id ? Number(empValues.manager_id) : null,
       status: empValues.status,
       join_date: empValues.join_date,
+      birth_date: empValues.birth_date || null,
+      address: empValues.address || null,
+      phone: empValues.phone || null,
       avatar: empValues.avatar,
+      salary_structures: empValues.salary_structures,
     };
     if (selectedEmployee) {
       await updateMutation.mutateAsync(payload);
@@ -342,10 +381,10 @@ export default function Employees() {
   };
 
   /**
-   * View employee full profile dialog
+   * Navigate to dedicated employee detail page
    */
   const handleViewEmployee = (emp: Employee) => {
-    setViewingEmployee(emp);
+    navigate(`/employees/${emp.id}`);
   };
 
   const employeeColumns = useMemo(
@@ -598,6 +637,28 @@ export default function Employees() {
                 </Select>
               </FormControl>
 
+              <FormControl size="small" fullWidth>
+                <Select
+                  value={shiftFilter}
+                  onChange={(e) => setShiftFilter(e.target.value)}
+                  className="!rounded-[5px] !text-sm"
+                >
+                  <MenuItem value="All" className="!text-sm">
+                    All Work Shifts
+                  </MenuItem>
+                  {uniqueShifts.map((sh) => (
+                    <MenuItem key={sh} value={sh} className="!text-sm">
+                      {sh}
+                    </MenuItem>
+                  ))}
+                  {shiftFilter !== "All" && !uniqueShifts.includes(shiftFilter) && (
+                    <MenuItem value={shiftFilter} className="!text-sm">
+                      {shiftFilter}
+                    </MenuItem>
+                  )}
+                </Select>
+              </FormControl>
+
               <div className="flex flex-col gap-1.5">
                 <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-1">
                   Join Date Range
@@ -617,6 +678,7 @@ export default function Employees() {
                     setDepartmentFilter("All");
                     setRoleFilter("All");
                     setManagerFilter("All");
+                    setShiftFilter("All");
                     setStartDate("");
                     setEndDate("");
                   }}
@@ -648,70 +710,6 @@ export default function Employees() {
         initialData={selectedEmployee}
         onSubmit={handleSaveEmployee}
       />
-
-      {viewingEmployee && (
-        <CustomDialog
-          open={Boolean(viewingEmployee)}
-          onClose={() => setViewingEmployee(null)}
-          title="Employee Profile Details"
-          maxWidth="xs"
-          actions={
-            <Button
-              variant="contained"
-              size="small"
-              onClick={() => {
-                const emp = viewingEmployee;
-                setViewingEmployee(null);
-                handleEditEmployee(emp);
-              }}
-              className="!text-xs !normal-case !bg-primary !text-primary-foreground"
-            >
-              Edit Profile
-            </Button>
-          }
-        >
-          <div className="flex items-center gap-3 pb-4 border-b border-border">
-            <Avatar
-              src={viewingEmployee.avatar || undefined}
-              className="!w-12 !h-12 !bg-primary/20 !text-primary !text-lg !font-bold"
-            >
-              {viewingEmployee.name.charAt(0)}
-            </Avatar>
-            <div>
-              <h4 className="text-base font-semibold text-foreground">{viewingEmployee.name}</h4>
-              <p className="text-xs text-muted-foreground">{viewingEmployee.email}</p>
-            </div>
-            <div className="ml-auto">
-              <Chip
-                label={viewingEmployee.status}
-                size="small"
-                color={viewingEmployee.status === "Active" ? "success" : "error"}
-                variant="outlined"
-                className="!text-xs"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="p-3 bg-secondary/50 rounded-[5px]">
-              <span className="text-muted-foreground">Role</span>
-              <p className="font-semibold text-foreground mt-0.5">{viewingEmployee.role}</p>
-            </div>
-            <div className="p-3 bg-secondary/50 rounded-[5px]">
-              <span className="text-muted-foreground">Department</span>
-              <p className="font-semibold text-foreground mt-0.5">{viewingEmployee.department}</p>
-            </div>
-            <div className="p-3 bg-secondary/50 rounded-[5px]">
-              <span className="text-muted-foreground">Manager</span>
-              <p className="font-semibold text-foreground mt-0.5">{viewingEmployee.manager}</p>
-            </div>
-            <div className="p-3 bg-secondary/50 rounded-[5px]">
-              <span className="text-muted-foreground">Join Date</span>
-              <p className="font-semibold text-foreground mt-0.5">{viewingEmployee.join_date}</p>
-            </div>
-          </div>
-        </CustomDialog>
-      )}
     </StaggerContainer>
   );
 }

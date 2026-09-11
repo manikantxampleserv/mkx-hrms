@@ -16,6 +16,9 @@ class UserModel {
   final String? joinDate;
   final String? managerName;
   final String? timezone;
+  final String? shiftName;
+  final String? shiftTime;
+  final int? shiftId;
 
   UserModel({
     required this.id,
@@ -32,6 +35,9 @@ class UserModel {
     this.joinDate,
     this.managerName,
     this.timezone,
+    this.shiftName,
+    this.shiftTime,
+    this.shiftId,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -53,6 +59,11 @@ class UserModel {
       joinDate: json['join_date']?.toString(),
       managerName: json['manager_name']?.toString(),
       timezone: json['timezone']?.toString(),
+      shiftName: json['shift']?.toString() ?? json['shift_name']?.toString(),
+      shiftTime: json['shift_time']?.toString(),
+      shiftId: json['shift_id'] is int
+          ? json['shift_id']
+          : int.tryParse(json['shift_id']?.toString() ?? ''),
     );
   }
 
@@ -72,6 +83,9 @@ class UserModel {
       'join_date': joinDate,
       'manager_name': managerName,
       'timezone': timezone,
+      'shift': shiftName,
+      'shift_time': shiftTime,
+      'shift_id': shiftId,
     };
   }
 

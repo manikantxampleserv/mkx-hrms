@@ -216,11 +216,7 @@ export const deleteDepartment = async (
 /**
  * Retrieves all roles with their assigned permissions and user count
  */
-export const getRoles = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
+export const getRoles = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const roles = await prisma.role.findMany({
       orderBy: { created_at: "asc" },
@@ -809,17 +805,18 @@ export const createSalaryStructure = async (
       return;
     }
 
-    const structure = await prisma.salaryStructure.create({
+    const structure = await (
+      prisma as unknown as { salaryStructure: { create: Function } }
+    ).salaryStructure.create({
       data: {
         name: input.name.trim(),
         code: input.code.trim().toUpperCase(),
         description: input.description?.trim() || null,
-        basic_percentage: input.basic_percentage,
-        hra_percentage: input.hra_percentage,
-        da_percentage: input.da_percentage,
-        special_allowance: input.special_allowance,
-        pf_percentage: input.pf_percentage,
-        tax_deduction_type: input.tax_deduction_type || "Standard",
+        is_deduction: Boolean(input.is_deduction),
+        is_taxable: input.is_taxable !== undefined ? Boolean(input.is_taxable) : true,
+        is_base_salary: Boolean(input.is_base_salary),
+        calculation_type: input.calculation_type || "Fixed",
+        default_value: Number(input.default_value) || 0,
         status: input.status || "Active",
       },
     });
@@ -847,18 +844,20 @@ export const updateSalaryStructure = async (
     const id = Number(req.params.id);
     const input: UpdateSalaryStructureInput = req.body;
 
-    const updated = await prisma.salaryStructure.update({
+    const updated = await (
+      prisma as unknown as { salaryStructure: { update: Function } }
+    ).salaryStructure.update({
       where: { id },
       data: {
         name: input.name?.trim(),
         code: input.code?.trim().toUpperCase(),
         description: input.description !== undefined ? input.description.trim() || null : undefined,
-        basic_percentage: input.basic_percentage,
-        hra_percentage: input.hra_percentage,
-        da_percentage: input.da_percentage,
-        special_allowance: input.special_allowance,
-        pf_percentage: input.pf_percentage,
-        tax_deduction_type: input.tax_deduction_type,
+        is_deduction: input.is_deduction !== undefined ? Boolean(input.is_deduction) : undefined,
+        is_taxable: input.is_taxable !== undefined ? Boolean(input.is_taxable) : undefined,
+        is_base_salary:
+          input.is_base_salary !== undefined ? Boolean(input.is_base_salary) : undefined,
+        calculation_type: input.calculation_type,
+        default_value: input.default_value !== undefined ? Number(input.default_value) : undefined,
         status: input.status,
       },
     });

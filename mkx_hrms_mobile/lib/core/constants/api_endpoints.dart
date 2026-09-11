@@ -28,6 +28,9 @@ class ApiEndpoints {
   static const String myLeaves = '/leaves/my';
   static const String applyLeave = '/leaves';
 
+  // Masters endpoints
+  static const String leaveTypes = '/masters/leave-types';
+
   // Payroll endpoints
   static const String myPayroll = '/payroll/my';
 

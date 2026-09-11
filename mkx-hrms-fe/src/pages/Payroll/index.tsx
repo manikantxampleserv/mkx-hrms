@@ -41,8 +41,10 @@ import {
   useGetPayrollFilters,
   useGetPayrollStats,
   useUpdatePayrollStatus,
+  useProcessBatchPayroll,
   type PayrollRecord,
 } from "services/payroll";
+import { RunPayrollDialog } from "./RunPayrollDialog";
 
 const iconMap: Record<string, LucideIcon> = {
   Wallet,
@@ -192,13 +194,21 @@ function getPayrollColumns(
       width: "20%",
     },
     {
-      header: "BASE SALARY",
-      cell: (row) => <span className="text-sm font-medium text-foreground">{row.base_salary}</span>,
+      header: "GROSS PAY",
+      cell: (row) => (
+        <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+          {row.gross_pay || row.base_salary}
+        </span>
+      ),
       width: "14%",
     },
     {
-      header: "ALLOWANCE",
-      cell: (row) => <span className="text-xs text-muted-foreground">{row.allowance}</span>,
+      header: "DEDUCTIONS",
+      cell: (row) => (
+        <span className="text-sm font-medium text-rose-600 dark:text-rose-400">
+          {row.total_deductions ? `-${row.total_deductions}` : "$0"}
+        </span>
+      ),
       width: "12%",
     },
     {
@@ -298,6 +308,13 @@ export default function Payroll() {
     refetchStats();
   });
 
+  const [isRunPayrollOpen, setIsRunPayrollOpen] = useState(false);
+
+  const processBatchMutation = useProcessBatchPayroll(() => {
+    refetch();
+    refetchStats();
+  });
+
   /**
    * Updates payroll status with feedback toast
    */
@@ -324,6 +341,25 @@ export default function Payroll() {
   );
 
   const records = useMemo(() => payrollResponse?.data || [], [payrollResponse]);
+
+  const pendingRecords = useMemo(
+    () => records.filter((r) => r.status === "Pending"),
+    [records],
+  );
+
+  /**
+   * Approves all pending disbursements in the current batch
+   */
+  const handleApproveAllPending = () => {
+    const pendingIds = pendingRecords
+      .map((r) => r.db_id)
+      .filter((id): id is number => typeof id === "number");
+    if (pendingIds.length === 0) return;
+    processBatchMutation.mutate({
+      payroll_ids: pendingIds,
+      status: "Processed",
+    });
+  };
 
   /**
    * Dynamic departments available in the Payroll directory
@@ -421,10 +457,26 @@ export default function Payroll() {
         </div>
 
         <div className="flex items-center gap-2">
+          {pendingRecords.length > 0 && (
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={handleApproveAllPending}
+              disabled={processBatchMutation.isPending}
+              startIcon={<CheckCircle className="w-3.5 h-3.5 text-emerald-500" />}
+              className="!border-emerald-500/30 !bg-emerald-500/10 !text-emerald-600 dark:!text-emerald-400 !text-xs !normal-case !font-semibold !px-3.5 !py-2 !rounded-[5px]"
+            >
+              {processBatchMutation.isPending
+                ? "Processing..."
+                : `Approve Batch (${pendingRecords.length})`}
+            </Button>
+          )}
           <Button
             variant="contained"
             size="small"
+            onClick={() => setIsRunPayrollOpen(true)}
             startIcon={<CreditCard className="w-3.5 h-3.5" />}
+            className="!bg-primary !text-primary-foreground hover:!bg-primary/90 !text-xs !normal-case !font-semibold !px-3.5 !py-2 !rounded-[5px] shadow-sm"
           >
             Run Payroll
           </Button>
@@ -559,22 +611,84 @@ export default function Payroll() {
             </div>
           </div>
 
-          <div className="space-y-2.5">
-            <div className="flex justify-between items-center text-xs p-2.5 bg-secondary/40 rounded-[5px]">
-              <span className="text-muted-foreground">Base Salary</span>
-              <span className="font-semibold text-foreground">{viewingPayroll.base_salary}</span>
+          <div className="space-y-3">
+            {/* Days calculation bar */}
+            <div className="grid grid-cols-3 gap-2 p-2.5 bg-secondary/30 rounded-[5px] text-xs">
+              <div>
+                <span className="text-[10px] text-muted-foreground block">Working Days</span>
+                <span className="font-semibold text-foreground">{viewingPayroll.working_days ?? 30} d</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-muted-foreground block">Paid Days</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">{viewingPayroll.paid_days ?? 30} d</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-muted-foreground block">LOP Days</span>
+                <span className="font-semibold text-rose-600 dark:text-rose-400">{viewingPayroll.lop_days ?? 0} d</span>
+              </div>
             </div>
-            <div className="flex justify-between items-center text-xs p-2.5 bg-secondary/40 rounded-[5px]">
-              <span className="text-muted-foreground">Allowance</span>
-              <span className="font-semibold text-emerald-500">+{viewingPayroll.allowance}</span>
-            </div>
-            <div className="flex justify-between items-center text-xs p-2.5 bg-primary/10 border border-primary/20 rounded-[5px]">
-              <span className="font-bold text-foreground">Net Disbursed Pay</span>
-              <span className="text-sm font-bold text-primary">{viewingPayroll.net_pay}</span>
-            </div>
-            <div className="flex justify-between items-center text-xs px-2.5 py-1 text-muted-foreground">
-              <span>Disbursement Pay Date</span>
-              <span className="font-medium text-foreground">{viewingPayroll.pay_date}</span>
+
+            {/* Itemized Line Items Breakdown */}
+            {viewingPayroll.items && viewingPayroll.items.length > 0 ? (
+              <div className="space-y-2">
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                    Earnings & Allowances
+                  </span>
+                  <div className="space-y-1">
+                    {viewingPayroll.items
+                      .filter((it) => it.category === "Earning")
+                      .map((it, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-xs p-2 bg-secondary/40 rounded-[4px]">
+                          <span className="text-foreground font-medium">{it.name}</span>
+                          <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                            +${Number(it.amount).toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {viewingPayroll.items.some((it) => it.category === "Deduction") && (
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider block">
+                      Deductions & Losses
+                    </span>
+                    <div className="space-y-1">
+                      {viewingPayroll.items
+                        .filter((it) => it.category === "Deduction")
+                        .map((it, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-xs p-2 bg-secondary/40 rounded-[4px]">
+                            <span className="text-foreground font-medium">{it.name}</span>
+                            <span className="font-semibold text-rose-600 dark:text-rose-400">
+                              -${Number(it.amount).toLocaleString()}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-xs p-2.5 bg-secondary/40 rounded-[5px]">
+                  <span className="text-muted-foreground">Base Salary</span>
+                  <span className="font-semibold text-foreground">{viewingPayroll.gross_pay || viewingPayroll.base_salary}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs p-2.5 bg-secondary/40 rounded-[5px]">
+                  <span className="text-muted-foreground">Allowance</span>
+                  <span className="font-semibold text-emerald-500">+{viewingPayroll.allowance || "$0"}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Payout Summary */}
+            <div className="flex justify-between items-center text-xs p-3 bg-primary/10 border border-primary/20 rounded-[5px]">
+              <div>
+                <span className="font-bold text-foreground block">Net Disbursed Pay</span>
+                <span className="text-[10px] text-muted-foreground">Pay Date: {viewingPayroll.pay_date}</span>
+              </div>
+              <span className="text-base font-bold text-primary">{viewingPayroll.net_pay}</span>
             </div>
           </div>
 
@@ -614,6 +728,15 @@ export default function Payroll() {
           </div>
         </CustomDialog>
       )}
+
+      <RunPayrollDialog
+        open={isRunPayrollOpen}
+        onClose={() => setIsRunPayrollOpen(false)}
+        onSuccess={() => {
+          refetch();
+          refetchStats();
+        }}
+      />
     </StaggerContainer>
   );
 }

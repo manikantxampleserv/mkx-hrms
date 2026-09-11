@@ -125,12 +125,40 @@ class PayslipDetailModal extends StatelessWidget {
             _buildRow('Payroll Code', slip.payrollCode, isDark),
             const SizedBox(height: 16),
 
-            // Earnings Breakdown
-            _buildSectionHeader('Earnings & Compensation'),
+            /// Attendance & Leave Calculation
+            _buildSectionHeader('Attendance & Calendar'),
             const SizedBox(height: 8),
-            _buildRow('Base Salary', slip.formattedBase, isDark),
-            _buildRow('Allowances & Benefits', slip.formattedAllowance, isDark),
-            _buildRow('Deductions / Taxes', '\$0.00', isDark),
+            _buildRow('Working Days in Month', '${slip.workingDays} days', isDark),
+            _buildRow('Paid Days', '${slip.paidDays} days', isDark),
+            if (slip.lopDays > 0)
+              _buildRow('Loss of Pay (Unpaid Leave)', '${slip.lopDays} days', isDark),
+            const SizedBox(height: 16),
+
+            /// Earnings Breakdown
+            _buildSectionHeader('Earnings & Allowances'),
+            const SizedBox(height: 8),
+            if (slip.items.any((i) => i.category == 'Earning'))
+              ...slip.items
+                  .where((i) => i.category == 'Earning')
+                  .map((it) => _buildRow(it.name, '+\$${it.amount.toStringAsFixed(2)}', isDark))
+            else ...[
+              _buildRow('Base Salary', slip.formattedBase, isDark),
+              _buildRow('Allowances & Benefits', slip.formattedAllowance, isDark),
+            ],
+            const SizedBox(height: 16),
+
+            /// Deductions Breakdown
+            if (slip.items.any((i) => i.category == 'Deduction') || slip.totalDeductions > 0) ...[
+              _buildSectionHeader('Deductions & Statutory Taxes'),
+              const SizedBox(height: 8),
+              if (slip.items.any((i) => i.category == 'Deduction'))
+                ...slip.items
+                    .where((i) => i.category == 'Deduction')
+                    .map((it) => _buildRow(it.name, '-\$${it.amount.toStringAsFixed(2)}', isDark))
+              else
+                _buildRow('Total Deductions', slip.formattedDeductions, isDark),
+              const SizedBox(height: 16),
+            ],
             const Divider(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

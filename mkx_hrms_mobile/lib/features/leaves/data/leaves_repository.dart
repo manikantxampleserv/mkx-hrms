@@ -56,4 +56,19 @@ class LeavesRepository {
     }
     throw Exception('Failed to submit leave application');
   }
+
+  /// Fetches active master leave types configured in the HRMS system
+  Future<List<MasterLeaveType>> getLeaveTypes() async {
+    final response = await _client.get(
+      ApiEndpoints.leaveTypes,
+      queryParameters: {'status': 'Active'},
+    );
+
+    if (response is List) {
+      return response
+          .map((item) => MasterLeaveType.fromJson(item as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
 }

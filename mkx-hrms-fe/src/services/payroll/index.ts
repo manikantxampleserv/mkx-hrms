@@ -3,19 +3,46 @@ import { useCustomMutation } from "hooks/useCustomMutation";
 import { type ApiResponse } from "../api.types";
 
 /**
+ * Line item within a payslip
+ */
+export interface PayrollItem {
+  id?: number;
+  payroll_id?: number;
+  salary_structure_id?: number | null;
+  name: string;
+  code: string;
+  category: "Earning" | "Deduction";
+  amount: number;
+  is_taxable: boolean;
+}
+
+/**
  * Payroll record contract
  */
 export interface PayrollRecord {
   id: string;
   db_id?: number;
+  payroll_code?: string;
   name: string;
   email: string;
   role: string;
   department: string;
-  base_salary: string;
-  allowance: string;
+  month?: number;
+  year?: number;
+  gross_pay?: string;
+  total_deductions?: string;
+  base_salary?: string;
+  allowance?: string;
   net_pay: string;
-  status: "Processed" | "Pending" | "On Hold";
+  raw_gross?: number;
+  raw_deductions?: number;
+  raw_net?: number;
+  working_days?: number;
+  paid_days?: number;
+  lop_days?: number;
+  lop_amount?: number;
+  items?: PayrollItem[];
+  status: "Processed" | "Pending" | "On Hold" | "Paid";
   pay_date: string;
   avatar?: string;
 }
@@ -83,6 +110,7 @@ export const useGetPayrollStats = () => {
  */
 export interface PayrollFilterOptions {
   departments: string[];
+  salaryStructures?: string[];
 }
 
 /**
@@ -102,7 +130,7 @@ export const useGetPayrollFilters = () => {
  */
 export interface UpdatePayrollInput {
   id: string;
-  status: "Processed" | "Pending" | "On Hold";
+  status: "Processed" | "Pending" | "On Hold" | "Paid";
 }
 
 /**
@@ -119,7 +147,7 @@ export const useUpdatePayrollStatus = (onSuccessCallback?: () => void) => {
   >({
     toastMessages: {
       loading: "Updating payroll status...",
-      success: (res) => `Payroll for ${res.data?.name || ""} status updated!`,
+      success: (res) => `Payroll status for ${res.data?.name || ""} updated!`,
     },
     onSuccess: () => {
       if (onSuccessCallback) onSuccessCallback();
@@ -143,3 +171,132 @@ export const useUpdatePayrollStatus = (onSuccessCallback?: () => void) => {
   };
 };
 
+/**
+ * Payload for generating payroll batch
+ */
+export interface GeneratePayrollInput {
+  month: number;
+  year: number;
+  department_id?: number;
+  employee_ids?: number[];
+  preview?: boolean;
+}
+
+/**
+ * Itemized breakdown inside preview
+ */
+export interface PayrollPreviewItem {
+  employee_id: number;
+  employee_code: string;
+  employee_name: string;
+  department: string;
+  role: string;
+  working_days: number;
+  paid_days: number;
+  lop_days: number;
+  lop_amount: number;
+  gross_pay: number;
+  total_deductions: number;
+  net_pay: number;
+  items: Array<{
+    name: string;
+    code: string;
+    category: "Earning" | "Deduction";
+    amount: number;
+    is_taxable: boolean;
+    salary_structure_id?: number | null;
+  }>;
+  warnings?: string[];
+}
+
+/**
+ * Summary data returned for payroll calculation preview
+ */
+export interface PayrollPreviewData {
+  month: number;
+  year: number;
+  days_in_month: number;
+  employee_count: number;
+  total_gross: number;
+  total_deductions: number;
+  total_net: number;
+  records: PayrollPreviewItem[];
+}
+
+/**
+ * Hook to generate payroll batch or execute calculation preview
+ *
+ * @param onSuccessCallback - Optional callback on success
+ * @returns Mutation trigger
+ */
+export const useGeneratePayroll = (
+  onSuccessCallback?: (data: ApiResponse<PayrollPreviewData | { month: number; year: number; count: number }>) => void,
+) => {
+  const mutation = useCustomMutation<
+    ApiResponse<PayrollPreviewData | { month: number; year: number; count: number }>,
+    unknown,
+    GeneratePayrollInput
+  >({
+    toastMessages: {
+      loading: "Calculating payroll batch...",
+      success: (res) => res.message || "Payroll operation processed successfully!",
+    },
+    onSuccess: (res) => {
+      if (onSuccessCallback) onSuccessCallback(res);
+    },
+  });
+
+  return {
+    ...mutation,
+    mutate: (data: GeneratePayrollInput) =>
+      mutation.mutate({
+        url: "/v1/payroll/generate",
+        method: "POST",
+        data,
+      }),
+    mutateAsync: (data: GeneratePayrollInput) =>
+      mutation.mutateAsync({
+        url: "/v1/payroll/generate",
+        method: "POST",
+        data,
+      }),
+  };
+};
+
+/**
+ * Hook to bulk process payroll records (e.g. approve or mark Paid)
+ *
+ * @param onSuccessCallback - Optional callback on success
+ * @returns Mutation trigger
+ */
+export const useProcessBatchPayroll = (onSuccessCallback?: () => void) => {
+  const mutation = useCustomMutation<
+    ApiResponse<{ count: number }>,
+    unknown,
+    { payroll_ids: number[]; status?: "Processed" | "Paid" | "Pending" | "On Hold" }
+  >({
+    toastMessages: {
+      loading: "Updating payroll batch...",
+      success: "Payroll batch status updated successfully!",
+    },
+    onSuccess: () => {
+      if (onSuccessCallback) onSuccessCallback();
+    },
+  });
+
+  return {
+    ...mutation,
+    mutate: (data: { payroll_ids: number[]; status?: "Processed" | "Paid" | "Pending" | "On Hold" }) =>
+      mutation.mutate({
+        url: "/v1/payroll/process-batch",
+        method: "POST",
+        data,
+      }),
+    mutateAsync: (data: { payroll_ids: number[]; status?: "Processed" | "Paid" | "Pending" | "On Hold" }) =>
+      mutation.mutateAsync({
+        url: "/v1/payroll/process-batch",
+        method: "POST",
+        data,
+      }),
+  };
+};

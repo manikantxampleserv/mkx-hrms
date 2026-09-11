@@ -31,6 +31,7 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
           include: {
             role_rel: true,
             department_rel: true,
+            shift_rel: true,
             manager: true,
           },
         },
@@ -71,6 +72,7 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
         include: {
           role_rel: true,
           department_rel: true,
+          shift_rel: true,
           manager: true,
         },
       });
@@ -95,6 +97,10 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
       avatar: user.avatar || employee?.avatar || null,
       role: user.role?.name || employee?.role_rel?.name || "Employee",
       department: employee?.department_rel?.name || "Engineering",
+      shift_id: employee?.shift_id || null,
+      shift: employee?.shift_rel?.name || null,
+      shift_time: employee?.shift_rel ? `${employee.shift_rel.start_time} - ${employee.shift_rel.end_time}` : null,
+      shift_rel: employee?.shift_rel || null,
       status: employee?.status || user.status || "Active",
       join_date: employee?.join_date ? employee.join_date.toISOString().split("T")[0] : null,
       manager_name: employee?.manager?.name || null,
@@ -167,6 +173,7 @@ export const getMe = async (req: Request, res: Response, next: NextFunction): Pr
           include: {
             role_rel: true,
             department_rel: true,
+            shift_rel: true,
             manager: true,
           },
         },
@@ -193,6 +200,7 @@ export const getMe = async (req: Request, res: Response, next: NextFunction): Pr
         include: {
           role_rel: true,
           department_rel: true,
+          shift_rel: true,
           manager: true,
         },
       });
@@ -209,6 +217,10 @@ export const getMe = async (req: Request, res: Response, next: NextFunction): Pr
       avatar: user.avatar || employee?.avatar || null,
       role: user.role?.name || employee?.role_rel?.name || "Employee",
       department: employee?.department_rel?.name || "Engineering",
+      shift_id: employee?.shift_id || null,
+      shift: employee?.shift_rel?.name || null,
+      shift_time: employee?.shift_rel ? `${employee.shift_rel.start_time} - ${employee.shift_rel.end_time}` : null,
+      shift_rel: employee?.shift_rel || null,
       status: employee?.status || user.status || "Active",
       join_date: employee?.join_date ? employee.join_date.toISOString().split("T")[0] : null,
       manager_name: employee?.manager?.name || null,

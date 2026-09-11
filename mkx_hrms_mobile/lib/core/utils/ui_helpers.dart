@@ -106,4 +106,21 @@ class UiHelpers {
       ),
     );
   }
+
+  /// Parses a hex color string into a Flutter Color object with fallback
+  static Color parseHexColor(
+    String? hexString, {
+    Color defaultColor = AppColors.info,
+  }) {
+    if (hexString == null || hexString.trim().isEmpty) return defaultColor;
+    try {
+      final clean = hexString.trim().replaceFirst('#', '');
+      final buffer = StringBuffer();
+      if (clean.length == 6) buffer.write('ff');
+      buffer.write(clean);
+      return Color(int.parse(buffer.toString(), radix: 16));
+    } catch (_) {
+      return defaultColor;
+    }
+  }
 }

@@ -117,13 +117,13 @@ export const activityTrackingMiddleware = async (
         where: {
           OR: [...(numericId ? [{ id: numericId }] : []), { leave_code: idStr }],
         },
-        include: { employee: true },
+        include: { employee: true, leave_type_rel: true },
       });
       if (leave) {
         snapshot = {
           id: leave.id,
           status: leave.status,
-          leave_type: leave.leave_type,
+          leave_type: leave.leave_type_rel?.name,
           employee_id: leave.employee_id,
           employee: { name: leave.employee?.name, id: leave.employee?.id },
         };

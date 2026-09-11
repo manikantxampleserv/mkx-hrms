@@ -24,7 +24,7 @@ export const getLeaves = async (req: Request, res: Response, next: NextFunction)
     const whereClause: {
       AND?: Array<Record<string, unknown>>;
       status?: string;
-      leave_type?: string;
+      leave_type_rel?: { name?: { equals?: string; mode?: "insensitive" } };
       start_date?: { gte?: Date };
       end_date?: { lte?: Date };
       employee?: { department_rel?: { name?: string } };
@@ -36,8 +36,8 @@ export const getLeaves = async (req: Request, res: Response, next: NextFunction)
       andConditions.push({
         OR: [
           { leave_code: { contains: search, mode: "insensitive" } },
-          { leave_type: { contains: search, mode: "insensitive" } },
           { reason: { contains: search, mode: "insensitive" } },
+          { leave_type_rel: { name: { contains: search, mode: "insensitive" } } },
           {
             employee: {
               OR: [
@@ -55,7 +55,9 @@ export const getLeaves = async (req: Request, res: Response, next: NextFunction)
       whereClause.status = status;
     }
     if (leaveType !== "All") {
-      whereClause.leave_type = leaveType;
+      whereClause.leave_type_rel = {
+        name: { equals: leaveType, mode: "insensitive" },
+      };
     }
     if (department !== "All") {
       whereClause.employee = {
@@ -84,6 +86,7 @@ export const getLeaves = async (req: Request, res: Response, next: NextFunction)
             department_rel: true,
           },
         },
+        leave_type_rel: true,
       },
     });
 
@@ -93,8 +96,9 @@ export const getLeaves = async (req: Request, res: Response, next: NextFunction)
       name: item.employee.name,
       email: item.employee.email,
       department: item.employee.department_rel?.name || "General",
-      leave_type: item.leave_type as
-        "Annual PTO" | "Sick Leave" | "Parental Leave" | "Casual Leave",
+      leave_type_id: item.leave_type_id,
+      leave_type: item.leave_type_rel?.name || "General Leave",
+      leave_type_color: item.leave_type_rel?.color || undefined,
       start_date: item.start_date.toLocaleDateString("en-US", {
         month: "short",
         day: "2-digit",
@@ -234,6 +238,64 @@ export const getLeaveStats = async (
 };
 
 /**
+ * Helper to adjust leave balance for an employee upon approval or reversal
+ *
+ * @param employeeId - Database ID of employee
+ * @param leaveTypeId - ID of the leave type
+ * @param year - The calendar year
+ * @param daysDelta - Positive if consuming balance, negative if releasing balance
+ */
+const adjustLeaveBalance = async (
+  employeeId: number,
+  leaveTypeId: number,
+  year: number,
+  daysDelta: number,
+): Promise<void> => {
+  try {
+    const leaveType = await prisma.leaveType.findUnique({ where: { id: leaveTypeId } });
+    if (!leaveType) return;
+
+    const allocated = leaveType.days_per_year;
+    const existingBalance = await prisma.leaveBalance.findUnique({
+      where: {
+        employee_id_leave_type_id_year: {
+          employee_id: employeeId,
+          leave_type_id: leaveTypeId,
+          year,
+        },
+      },
+    });
+
+    if (existingBalance) {
+      const newUsed = Math.max(0, existingBalance.used + daysDelta);
+      const newRemaining = Math.max(0, existingBalance.allocated - newUsed);
+      await prisma.leaveBalance.update({
+        where: { id: existingBalance.id },
+        data: {
+          used: newUsed,
+          remaining: newRemaining,
+        },
+      });
+    } else {
+      const newUsed = Math.max(0, daysDelta);
+      const newRemaining = Math.max(0, allocated - newUsed);
+      await prisma.leaveBalance.create({
+        data: {
+          employee_id: employeeId,
+          leave_type_id: leaveTypeId,
+          year,
+          allocated,
+          used: newUsed,
+          remaining: newRemaining,
+        },
+      });
+    }
+  } catch (balanceError: unknown) {
+    logger.error("Failed to adjust leave balance:", balanceError);
+  }
+};
+
+/**
  * Controller to update the status of a leave request
  *
  * @param req - Express request with leave ID and new status
@@ -266,7 +328,26 @@ export const updateLeaveStatus = async (
     const updated = await prisma.leave.update({
       where: { id: existing.id },
       data: { status },
+      include: { leave_type_rel: true, employee: true },
     });
+
+    if (status === "Approved" && existing.status !== "Approved") {
+      const year = new Date(existing.start_date).getFullYear();
+      await adjustLeaveBalance(
+        existing.employee_id,
+        existing.leave_type_id,
+        year,
+        existing.days_count,
+      );
+    } else if (status !== "Approved" && existing.status === "Approved") {
+      const year = new Date(existing.start_date).getFullYear();
+      await adjustLeaveBalance(
+        existing.employee_id,
+        existing.leave_type_id,
+        year,
+        -existing.days_count,
+      );
+    }
 
     res.sendSuccess({
       message: `Leave request ${status.toLowerCase()} successfully`,
@@ -298,6 +379,7 @@ export const exportLeaves = async (
             department_rel: true,
           },
         },
+        leave_type_rel: true,
       },
     });
 
@@ -305,7 +387,7 @@ export const exportLeaves = async (
       "Leave Code": leave.leave_code,
       Employee: leave.employee?.name || "Unknown",
       Department: leave.employee?.department_rel?.name || "General",
-      "Leave Type": leave.leave_type,
+      "Leave Type": leave.leave_type_rel?.name || "General Leave",
       "Start Date": leave.start_date ? leave.start_date.toISOString().split("T")[0] : "",
       "End Date": leave.end_date ? leave.end_date.toISOString().split("T")[0] : "",
       "Days Count": leave.days_count,
@@ -354,7 +436,9 @@ export const getLeaveFilters = async (
 
     const dbLeaves = await prisma.leave.findMany({
       select: {
-        leave_type: true,
+        leave_type_rel: {
+          select: { name: true },
+        },
         employee: {
           select: {
             department_rel: {
@@ -369,8 +453,9 @@ export const getLeaveFilters = async (
     const leaveTypesSet = new Set<string>(dbLeaveTypes.map((lt) => lt.name));
 
     dbLeaves.forEach((item) => {
-      if (item.employee?.department_rel?.name) departmentsSet.add(item.employee.department_rel.name);
-      if (item.leave_type) leaveTypesSet.add(item.leave_type);
+      if (item.employee?.department_rel?.name)
+        departmentsSet.add(item.employee.department_rel.name);
+      if (item.leave_type_rel?.name) leaveTypesSet.add(item.leave_type_rel.name);
     });
 
     res.sendSuccess({
@@ -398,7 +483,7 @@ export const createLeave = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    let { employee_id, leave_type, start_date, end_date, reason } = req.body;
+    let { employee_id, leave_type, leave_type_id, start_date, end_date, reason } = req.body;
 
     if (!employee_id && req.user?.employee_db_id) {
       employee_id = req.user.employee_db_id;
@@ -411,7 +496,7 @@ export const createLeave = async (
       if (firstEmp) employee_id = firstEmp.id;
     }
 
-    if (!employee_id || !leave_type || !start_date || !end_date) {
+    if (!employee_id || (!leave_type && !leave_type_id) || !start_date || !end_date) {
       res.sendError({
         statusCode: 400,
         message: "Employee ID, leave type, start date, and end date are required",
@@ -441,6 +526,37 @@ export const createLeave = async (
       }
     }
 
+    let resolvedLeaveTypeId: number | null = null;
+    if (leave_type_id) {
+      resolvedLeaveTypeId = Number(leave_type_id);
+    } else if (leave_type) {
+      const lt = await prisma.leaveType.findFirst({
+        where: {
+          OR: [
+            { name: { equals: String(leave_type), mode: "insensitive" } },
+            { code: { equals: String(leave_type), mode: "insensitive" } },
+          ],
+        },
+      });
+      if (lt) resolvedLeaveTypeId = lt.id;
+    }
+
+    if (!resolvedLeaveTypeId) {
+      const defaultLt = await prisma.leaveType.findFirst({
+        where: { status: "Active" },
+        orderBy: { id: "asc" },
+      });
+      if (defaultLt) resolvedLeaveTypeId = defaultLt.id;
+    }
+
+    if (!resolvedLeaveTypeId) {
+      res.sendError({
+        statusCode: 400,
+        message: "A valid leave type is required",
+      });
+      return;
+    }
+
     const startDateObj = new Date(start_date);
     const endDateObj = new Date(end_date);
 
@@ -460,13 +576,13 @@ export const createLeave = async (
 
     const approvalToken = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
     const newLeave = await prisma.leave.create({
       data: {
         leave_code: leaveCode,
         employee_id: resolvedEmpId,
-        leave_type,
+        leave_type_id: resolvedLeaveTypeId,
         start_date: startDateObj,
         end_date: endDateObj,
         days_count: daysCount,
@@ -475,7 +591,7 @@ export const createLeave = async (
         approval_token: approvalToken,
         approval_token_expires: expiresAt,
       },
-      include: { employee: true },
+      include: { employee: true, leave_type_rel: true },
     });
 
     if (newLeave.employee.manager_id) {
@@ -487,7 +603,7 @@ export const createLeave = async (
           managerName: manager.name,
           managerEmail: manager.email,
           employeeName: newLeave.employee.name,
-          leaveType: newLeave.leave_type,
+          leaveType: newLeave.leave_type_rel.name,
           startDate: newLeave.start_date.toISOString().split("T")[0],
           endDate: newLeave.end_date.toISOString().split("T")[0],
           daysCount: newLeave.days_count,
@@ -506,7 +622,8 @@ export const createLeave = async (
         db_id: newLeave.id,
         leave_code: newLeave.leave_code,
         employee_name: newLeave.employee.name,
-        leave_type: newLeave.leave_type,
+        leave_type_id: newLeave.leave_type_id,
+        leave_type: newLeave.leave_type_rel.name,
         start_date: newLeave.start_date.toISOString().split("T")[0],
         end_date: newLeave.end_date.toISOString().split("T")[0],
         days_count: newLeave.days_count,
@@ -562,14 +679,15 @@ export const getMyLeaves = async (
     const records = await prisma.leave.findMany({
       where: { employee_id: employeeId },
       orderBy: { created_at: "desc" },
-      include: { employee: true },
+      include: { employee: true, leave_type_rel: true },
     });
 
     const formattedHistory = records.map((item) => ({
       id: item.leave_code,
       db_id: item.id,
       leave_code: item.leave_code,
-      leave_type: item.leave_type,
+      leave_type_id: item.leave_type_id,
+      leave_type: item.leave_type_rel?.name || "Leave",
       start_date: item.start_date.toISOString().split("T")[0],
       end_date: item.end_date.toISOString().split("T")[0],
       days_count: item.days_count,
@@ -578,18 +696,74 @@ export const getMyLeaves = async (
       applied_on: item.created_at.toISOString().split("T")[0],
     }));
 
-    // Calculate balances
-    const approvedAnnual = records
-      .filter((r) => r.leave_type.includes("Annual") && r.status === "Approved")
-      .reduce((sum, r) => sum + r.days_count, 0);
+    const activeLeaveTypes = await prisma.leaveType.findMany({
+      where: { status: "Active" },
+      orderBy: { created_at: "asc" },
+    });
 
-    const approvedSick = records
-      .filter((r) => r.leave_type.includes("Sick") && r.status === "Approved")
-      .reduce((sum, r) => sum + r.days_count, 0);
+    const currentYear = new Date().getFullYear();
+    const dynamicBalances = await Promise.all(
+      activeLeaveTypes.map(async (lt) => {
+        let balance = await prisma.leaveBalance.findUnique({
+          where: {
+            employee_id_leave_type_id_year: {
+              employee_id: employeeId,
+              leave_type_id: lt.id,
+              year: currentYear,
+            },
+          },
+        });
 
-    const approvedCasual = records
-      .filter((r) => r.leave_type.includes("Casual") && r.status === "Approved")
-      .reduce((sum, r) => sum + r.days_count, 0);
+        if (!balance) {
+          const usedFromRecords = records
+            .filter((r) => r.status === "Approved" && r.leave_type_id === lt.id)
+            .reduce((sum, r) => sum + r.days_count, 0);
+
+          balance = await prisma.leaveBalance.create({
+            data: {
+              employee_id: employeeId,
+              leave_type_id: lt.id,
+              year: currentYear,
+              allocated: lt.days_per_year,
+              used: usedFromRecords,
+              remaining: Math.max(0, lt.days_per_year - usedFromRecords),
+            },
+          });
+        }
+
+        return {
+          id: lt.id,
+          name: lt.name,
+          code: lt.code,
+          total: balance.allocated,
+          used: balance.used,
+          remaining: balance.remaining,
+          color: lt.color || "#4f46e5",
+          is_paid: lt.is_paid,
+        };
+      }),
+    );
+
+    const resolveQuota = (
+      keyword: string,
+      fallbackTotal: number,
+    ): { total: number; used: number; remaining: number } => {
+      const found = dynamicBalances.find((item) =>
+        item.name.toLowerCase().includes(keyword.toLowerCase()),
+      );
+      if (found) {
+        return {
+          total: found.total,
+          used: found.used,
+          remaining: found.remaining,
+        };
+      }
+      return {
+        total: fallbackTotal,
+        used: 0,
+        remaining: fallbackTotal,
+      };
+    };
 
     const pendingCount = records.filter((r) => r.status === "Pending").length;
 
@@ -597,10 +771,11 @@ export const getMyLeaves = async (
       message: "Personal leaves retrieved successfully",
       data: {
         balances: {
-          annual: { total: 18, used: approvedAnnual, remaining: Math.max(0, 18 - approvedAnnual) },
-          sick: { total: 12, used: approvedSick, remaining: Math.max(0, 12 - approvedSick) },
-          casual: { total: 6, used: approvedCasual, remaining: Math.max(0, 6 - approvedCasual) },
+          annual: resolveQuota("Annual", 18),
+          sick: resolveQuota("Sick", 10),
+          casual: resolveQuota("Casual", 12),
           pending_requests: pendingCount,
+          list: dynamicBalances,
         },
         history: formattedHistory,
       },
@@ -631,7 +806,7 @@ export const getLeaveByApprovalToken = async (
 
     const leave = await prisma.leave.findFirst({
       where: { approval_token: token },
-      include: { employee: true },
+      include: { employee: true, leave_type_rel: true },
     });
 
     if (!leave) {
@@ -654,7 +829,8 @@ export const getLeaveByApprovalToken = async (
       data: {
         id: leave.leave_code,
         employee_name: leave.employee.name,
-        leave_type: leave.leave_type,
+        leave_type_id: leave.leave_type_id,
+        leave_type: leave.leave_type_rel.name,
         start_date: leave.start_date.toISOString().split("T")[0],
         end_date: leave.end_date.toISOString().split("T")[0],
         days_count: leave.days_count,
@@ -720,6 +896,11 @@ export const processLeaveApproval = async (
       },
     });
 
+    if (status === "Approved") {
+      const year = new Date(leave.start_date).getFullYear();
+      await adjustLeaveBalance(leave.employee_id, leave.leave_type_id, year, leave.days_count);
+    }
+
     res.sendSuccess({
       message: `Leave request ${status.toLowerCase()} successfully`,
       data: { status: updated.status },
@@ -728,4 +909,3 @@ export const processLeaveApproval = async (
     next(err);
   }
 };
-

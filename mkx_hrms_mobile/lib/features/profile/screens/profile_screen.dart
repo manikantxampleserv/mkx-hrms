@@ -8,10 +8,33 @@ import '../../../core/utils/ui_helpers.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../auth/state/auth_provider.dart';
+import '../../leaves/models/leave_model.dart';
+import '../../leaves/state/leaves_provider.dart';
+import '../../leaves/widgets/apply_leave_bottom_sheet.dart';
 
 /// Personal Employee Profile, Settings, Theme Mode, and Logout Screen
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final leaves = context.read<LeavesProvider>();
+      if (leaves.balances == null) {
+        final auth = context.read<AuthProvider>();
+        leaves.loadLeaves(
+          employeeId: auth.currentUser?.employeeDbId,
+          employeeCode: auth.currentUser?.employeeId,
+        );
+      }
+    });
+  }
 
   Future<void> _handleLogout(BuildContext context) async {
     final confirmed = await UiHelpers.showConfirmDialog(
@@ -35,6 +58,7 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final auth = context.watch<AuthProvider>();
+    final leaves = context.watch<LeavesProvider>();
     final user = auth.currentUser;
 
     return Scaffold(
@@ -214,9 +238,75 @@ class ProfileScreen extends StatelessWidget {
                       value: 'Asia/Kolkata (IST)',
                       isDark: isDark,
                     ),
+                    _buildDivider(isDark),
+                    _buildInfoTile(
+                      icon: Icons.schedule_outlined,
+                      label: 'Work Shift',
+                      value: user?.shiftName != null
+                          ? '${user!.shiftName}${user.shiftTime != null ? ' (${user.shiftTime})' : ''}'
+                          : 'General (09:00 - 18:00)',
+                      isDark: isDark,
+                    ),
                   ],
                 ),
               ),
+              const SizedBox(height: 24),
+
+              // Leave Balances Group
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Leave Balances',
+                    style: GoogleFonts.inter(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => const ApplyLeaveBottomSheet(),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.add_circle_outline_rounded,
+                            size: 14,
+                            color: isDark
+                                ? AppColors.darkPrimary
+                                : AppColors.lightPrimary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Apply Leave',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                                  ? AppColors.darkPrimary
+                                  : AppColors.lightPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _buildLeaveBalancesCard(context, leaves, isDark),
               const SizedBox(height: 24),
 
               // Preferences & Theme
@@ -404,6 +494,209 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Builds the leave quotas and remaining balances card in profile
+  Widget _buildLeaveBalancesCard(
+    BuildContext context,
+    LeavesProvider leaves,
+    bool isDark,
+  ) {
+    final quotas = leaves.balances?.list ?? [];
+
+    if (leaves.isLoading && quotas.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkCard : AppColors.lightCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          ),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    final displayQuotas = quotas.isNotEmpty
+        ? quotas
+        : (leaves.masterLeaveTypes.isNotEmpty
+            ? leaves.masterLeaveTypes
+                .map(
+                  (type) => LeaveQuota(
+                    id: type.id,
+                    name: type.name,
+                    code: type.code,
+                    total: type.daysPerYear,
+                    used: 0,
+                    remaining: type.daysPerYear,
+                    color: type.color,
+                    isPaid: type.isPaid,
+                  ),
+                )
+                .toList()
+            : <LeaveQuota>[]);
+
+    if (displayQuotas.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkCard : AppColors.lightCard,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            'No leave balances available',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCard : AppColors.lightCard,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+        ),
+      ),
+      child: Column(
+        children: displayQuotas.asMap().entries.map((entry) {
+          final index = entry.key;
+          final quota = entry.value;
+          final color = UiHelpers.parseHexColor(
+            quota.color,
+            defaultColor: index % 3 == 0
+                ? AppColors.info
+                : (index % 3 == 1 ? AppColors.success : AppColors.warning),
+          );
+          final progress = quota.total > 0
+              ? (quota.used / quota.total).clamp(0.0, 1.0)
+              : 0.0;
+
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              quota.name ?? 'Leave',
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (quota.code != null && quota.code!.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  quota.code!,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: color,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        Text(
+                          '${quota.remaining} days left',
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: color,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 4,
+                        backgroundColor: isDark
+                            ? AppColors.darkBorder
+                            : AppColors.lightBorder,
+                        valueColor: AlwaysStoppedAnimation<Color>(color),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${quota.used} used of ${quota.total} total',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: isDark
+                                ? AppColors.darkMuted
+                                : AppColors.lightMuted,
+                          ),
+                        ),
+                        Text(
+                          quota.isPaid == false ? 'Unpaid' : 'Paid Leave',
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: isDark
+                                ? AppColors.darkMuted
+                                : AppColors.lightMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (index < displayQuotas.length - 1) _buildDivider(isDark),
+            ],
+          );
+        }).toList(),
       ),
     );
   }

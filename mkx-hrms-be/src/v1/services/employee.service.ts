@@ -132,6 +132,7 @@ export const createEmployeeWithUser = async (
         email: input.email,
         role_id: input.role_id ?? null,
         department_id: input.department_id ?? null,
+        shift_id: input.shift_id ?? null,
         status: input.status ?? "Active",
         manager_id: input.manager_id ?? null,
         join_date: new Date(input.join_date),
@@ -139,6 +140,34 @@ export const createEmployeeWithUser = async (
         user_id: user.id,
       },
     });
+
+    if (input.salary_structures && input.salary_structures.length > 0) {
+      for (const structure of input.salary_structures) {
+        await (
+          tx as unknown as {
+            employeeSalaryStructure: {
+              create: (args: {
+                data: {
+                  employee_id: number;
+                  salary_structure_id: number;
+                  amount: number;
+                  effective_date: Date;
+                  status: string;
+                };
+              }) => Promise<unknown>;
+            };
+          }
+        ).employeeSalaryStructure.create({
+          data: {
+            employee_id: employee.id,
+            salary_structure_id: Number(structure.salary_structure_id),
+            amount: Number(structure.amount) || 0,
+            effective_date: structure.effective_date ? new Date(structure.effective_date) : new Date(),
+            status: structure.status || "Active",
+          },
+        });
+      }
+    }
 
     return { employee, user, temporaryPassword, setPasswordToken };
   });
@@ -163,6 +192,8 @@ export const onboardCandidateToEmployee = async (
     join_date?: Date | string;
     department?: string;
     role?: string;
+    shift_id?: number;
+    shift?: string;
   },
 ): Promise<OnboardCandidateResult> => {
   return prisma.$transaction(async (tx) => {
@@ -178,15 +209,15 @@ export const onboardCandidateToEmployee = async (
       throw new Error(`Candidate ${candidate.name} is already onboarded as an employee`);
     }
 
-    const totalEmployees = await tx.employee.count();
-    const generatedEmployeeId =
-      additionalInfo?.employee_id ||
-      `EMP-${String(totalEmployees + 1).padStart(3, "0")}`;
-
     const { first_name: parsedFirst, last_name: parsedLast } = parseNameComponents(candidate.name);
-
     const temporaryPassword = generateTemporaryPassword();
     const hashedPassword = await hashPassword(temporaryPassword);
+
+    let generatedEmployeeId = additionalInfo?.employee_id;
+    if (!generatedEmployeeId) {
+      const count = await tx.employee.count();
+      generatedEmployeeId = `EMP-${String(count + 1).padStart(3, "0")}`;
+    }
 
     let deptId = additionalInfo?.department_id ?? null;
     if (!deptId && (additionalInfo?.department || candidate.department)) {
@@ -210,6 +241,14 @@ export const onboardCandidateToEmployee = async (
         where: { name: additionalInfo.manager_name },
       });
       if (dbMgr) mgrId = dbMgr.id;
+    }
+
+    let shiftId = additionalInfo?.shift_id ?? null;
+    if (!shiftId && additionalInfo?.shift) {
+      const dbShift = await tx.workShift.findFirst({
+        where: { name: additionalInfo.shift },
+      });
+      if (dbShift) shiftId = dbShift.id;
     }
 
     const user = await tx.user.create({
@@ -247,6 +286,7 @@ export const onboardCandidateToEmployee = async (
         email: candidate.email,
         role_id: roleId,
         department_id: deptId,
+        shift_id: shiftId,
         status: "Active",
         manager_id: mgrId,
         join_date: additionalInfo?.join_date ? new Date(additionalInfo.join_date) : new Date(),
@@ -273,4 +313,3 @@ export const onboardCandidateToEmployee = async (
     };
   });
 };
-

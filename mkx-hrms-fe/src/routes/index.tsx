@@ -8,6 +8,7 @@ import SetPassword from "pages/SetPassword";
 import LeaveApproval from "pages/LeaveApproval";
 import Dashboard from "pages/Dashboard";
 import Employees from "pages/Employees";
+import EmployeeDetail from "pages/Employees/EmployeeDetail";
 import Attendance from "pages/Attendance";
 import Leaves from "pages/Leaves";
 import Recruitment from "pages/Recruitment";
@@ -38,6 +39,10 @@ export const appRoutes: AppRouteItem[] = [
   {
     path: "/employees",
     element: <Employees />,
+  },
+  {
+    path: "/employees/:id",
+    element: <EmployeeDetail />,
   },
   {
     path: "/attendance",

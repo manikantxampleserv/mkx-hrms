@@ -2,6 +2,27 @@ import { useCustomQuery } from "hooks/useCustomQuery";
 import { useCustomMutation } from "hooks/useCustomMutation";
 import { type ApiResponse } from "../api.types";
 
+export interface EmployeeSalaryStructureAssignment {
+  id?: number;
+  employee_id?: number;
+  salary_structure_id: number;
+  amount: number;
+  effective_date?: string;
+  status?: string;
+  salary_structure?: {
+    id: number;
+    name: string;
+    code: string;
+    description?: string | null;
+    is_deduction: boolean;
+    is_taxable: boolean;
+    is_base_salary: boolean;
+    calculation_type: string;
+    default_value: number;
+    status: string;
+  };
+}
+
 /**
  * Data contract representing an employee in the frontend application
  */
@@ -16,6 +37,18 @@ export interface Employee {
   role_id?: number | null;
   department: string;
   department_id?: number | null;
+  shift_id?: number | null;
+  shift?: string | null;
+  shift_time?: string | null;
+  shift_rel?: {
+    id: number;
+    name: string;
+    code: string;
+    start_time: string;
+    end_time: string;
+    grace_mins?: number;
+  } | null;
+  salary_structures?: EmployeeSalaryStructureAssignment[];
   status: "Active" | "Inactive";
   manager: string;
   manager_id?: number | null;
@@ -24,6 +57,37 @@ export interface Employee {
   address?: string | null;
   phone?: string | null;
   avatar?: string;
+  payrolls?: Array<{
+    id: string;
+    db_id?: number;
+    month: number;
+    year: number;
+    gross_pay: string;
+    total_deductions: string;
+    net_pay: string;
+    raw_gross?: number;
+    raw_deductions?: number;
+    raw_net?: number;
+    working_days?: number;
+    paid_days?: number;
+    lop_days?: number;
+    lop_amount?: number;
+    status: "Processed" | "Pending" | "On Hold" | "Paid";
+    pay_date: string;
+    items?: Array<{
+      name: string;
+      code: string;
+      category: "Earning" | "Deduction";
+      amount: number;
+      is_taxable: boolean;
+    }>;
+  }>;
+  user?: {
+    id: number;
+    email: string;
+    status: string;
+    created_at: string;
+  } | null;
 }
 
 /**
@@ -51,6 +115,7 @@ export const useGetEmployees = (params?: {
   department?: string;
   role?: string;
   manager?: string;
+  shift?: string;
   startDate?: string;
   endDate?: string;
 }) => {
@@ -61,6 +126,7 @@ export const useGetEmployees = (params?: {
     queryParams.append("department", params.department);
   if (params?.role && params.role !== "All") queryParams.append("role", params.role);
   if (params?.manager && params.manager !== "All") queryParams.append("manager", params.manager);
+  if (params?.shift && params.shift !== "All") queryParams.append("shift", params.shift);
   if (params?.startDate) queryParams.append("startDate", params.startDate);
   if (params?.endDate) queryParams.append("endDate", params.endDate);
 
@@ -74,10 +140,25 @@ export const useGetEmployees = (params?: {
       params?.department,
       params?.role,
       params?.manager,
+      params?.shift,
       params?.startDate,
       params?.endDate,
     ],
     `/v1/employees${queryString}`,
+  );
+};
+
+/**
+ * Hook to retrieve a single employee record with its complete relations and payroll history
+ *
+ * @param id - Employee unique code or numeric database ID
+ * @returns React Query query result
+ */
+export const useGetEmployeeById = (id?: string | number) => {
+  return useCustomQuery<ApiResponse<Employee>>(
+    ["employees", "detail", String(id)],
+    `/v1/employees/${id}`,
+    { enabled: Boolean(id) },
   );
 };
 
@@ -201,6 +282,7 @@ export interface EmployeeFilterOptions {
   departments: string[];
   roles: string[];
   managers: string[];
+  shifts?: Array<{ id: number; name: string; start_time: string; end_time: string }>;
 }
 
 /**
@@ -213,4 +295,62 @@ export const useGetEmployeeFilters = () => {
     ["employees", "filters"],
     "/v1/employees/filters",
   );
+};
+
+/**
+ * Hook to retrieve assigned salary structure components for a specific employee
+ *
+ * @param employeeId - The employee ID
+ * @returns React Query query result with assigned salary structures
+ */
+export const useGetEmployeeSalaryStructures = (employeeId?: string | number) => {
+  return useCustomQuery<ApiResponse<EmployeeSalaryStructureAssignment[]>>(
+    ["employees", employeeId, "salary-structures"],
+    `/v1/employees/${employeeId}/salary-structures`,
+    {
+      enabled: Boolean(employeeId),
+    },
+  );
+};
+
+/**
+ * Hook to bulk assign salary structures to an employee
+ *
+ * @param employeeId - The employee ID
+ * @param onSuccessCallback - Optional callback on success
+ * @returns Mutation trigger
+ */
+export const useAssignEmployeeSalaryStructures = (
+  employeeId: string | number,
+  onSuccessCallback?: () => void,
+) => {
+  const mutation = useCustomMutation<
+    ApiResponse<unknown>,
+    unknown,
+    { assignments: Array<{ salary_structure_id: number; amount: number; effective_date?: string; status?: string }> }
+  >({
+    toastMessages: {
+      loading: "Saving compensation structure...",
+      success: "Salary structures assigned successfully!",
+    },
+    onSuccess: () => {
+      if (onSuccessCallback) onSuccessCallback();
+    },
+  });
+
+  return {
+    ...mutation,
+    mutate: (data: { assignments: Array<{ salary_structure_id: number; amount: number; effective_date?: string; status?: string }> }) =>
+      mutation.mutate({
+        url: `/v1/employees/${employeeId}/salary-structures`,
+        method: "POST",
+        data,
+      }),
+    mutateAsync: (data: { assignments: Array<{ salary_structure_id: number; amount: number; effective_date?: string; status?: string }> }) =>
+      mutation.mutateAsync({
+        url: `/v1/employees/${employeeId}/salary-structures`,
+        method: "POST",
+        data,
+      }),
+  };
 };

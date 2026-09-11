@@ -93,12 +93,11 @@ export interface CreateSalaryStructureInput {
   name: string;
   code: string;
   description?: string;
-  basic_percentage: number;
-  hra_percentage: number;
-  da_percentage: number;
-  special_allowance: number;
-  pf_percentage: number;
-  tax_deduction_type?: string;
+  is_deduction?: boolean;
+  is_taxable?: boolean;
+  is_base_salary?: boolean;
+  calculation_type?: string;
+  default_value?: number;
   status?: string;
 }
 
@@ -109,12 +108,11 @@ export interface UpdateSalaryStructureInput {
   name?: string;
   code?: string;
   description?: string;
-  basic_percentage?: number;
-  hra_percentage?: number;
-  da_percentage?: number;
-  special_allowance?: number;
-  pf_percentage?: number;
-  tax_deduction_type?: string;
+  is_deduction?: boolean;
+  is_taxable?: boolean;
+  is_base_salary?: boolean;
+  calculation_type?: string;
+  default_value?: number;
   status?: string;
 }
 

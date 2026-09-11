@@ -3,10 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/date_utils.dart';
+import '../../../core/utils/ui_helpers.dart';
 import '../../../core/widgets/custom_button.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../auth/state/auth_provider.dart';
+import '../models/leave_model.dart';
 import '../state/leaves_provider.dart';
 import '../widgets/apply_leave_bottom_sheet.dart';
 
@@ -49,7 +51,6 @@ class _LeavesScreenState extends State<LeavesScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final leaves = context.watch<LeavesProvider>();
-    final balances = leaves.balances;
 
     return Scaffold(
       body: SafeArea(
@@ -105,39 +106,7 @@ class _LeavesScreenState extends State<LeavesScreen> {
                 const SizedBox(height: 20),
 
                 // Quota Allowance Cards
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildQuotaCard(
-                        context,
-                        title: 'Annual PTO',
-                        remaining: balances?.annual.remaining ?? 18,
-                        total: balances?.annual.total ?? 18,
-                        color: AppColors.info,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildQuotaCard(
-                        context,
-                        title: 'Sick Leave',
-                        remaining: balances?.sick.remaining ?? 12,
-                        total: balances?.sick.total ?? 12,
-                        color: AppColors.success,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildQuotaCard(
-                        context,
-                        title: 'Casual',
-                        remaining: balances?.casual.remaining ?? 6,
-                        total: balances?.casual.total ?? 6,
-                        color: AppColors.warning,
-                      ),
-                    ),
-                  ],
-                ),
+                _buildDynamicQuotaCards(context, leaves),
                 const SizedBox(height: 24),
 
                 // Status Filter Chips
@@ -375,17 +344,82 @@ class _LeavesScreenState extends State<LeavesScreen> {
     );
   }
 
+  Widget _buildDynamicQuotaCards(
+    BuildContext context,
+    LeavesProvider leaves,
+  ) {
+    final quotas = leaves.balances?.list ?? [];
+    final displayQuotas = quotas.isNotEmpty
+        ? quotas
+        : (leaves.masterLeaveTypes.isNotEmpty
+            ? leaves.masterLeaveTypes
+                .map(
+                  (type) => LeaveQuota(
+                    id: type.id,
+                    name: type.name,
+                    code: type.code,
+                    total: type.daysPerYear,
+                    used: 0,
+                    remaining: type.daysPerYear,
+                    color: type.color,
+                    isPaid: type.isPaid,
+                  ),
+                )
+                .toList()
+            : <LeaveQuota>[]);
+
+    if (displayQuotas.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return SizedBox(
+      height: 106,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        itemCount: displayQuotas.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final item = displayQuotas[index];
+          final color = UiHelpers.parseHexColor(
+            item.color,
+            defaultColor: index % 3 == 0
+                ? AppColors.info
+                : (index % 3 == 1 ? AppColors.success : AppColors.warning),
+          );
+
+          return SizedBox(
+            width: 142,
+            child: _buildQuotaCard(
+              context,
+              title: item.name ?? 'Leave',
+              code: item.code,
+              remaining: item.remaining,
+              used: item.used,
+              total: item.total,
+              color: color,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildQuotaCard(
     BuildContext context, {
     required String title,
+    String? code,
     required int remaining,
+    int? used,
     required int total,
     required Color color,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final usedCount = used ?? (total - remaining);
+    final progress = total > 0 ? (usedCount / total).clamp(0.0, 1.0) : 0.0;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkCard : AppColors.lightCard,
         borderRadius: BorderRadius.circular(12),
@@ -395,18 +429,45 @@ class _LeavesScreenState extends State<LeavesScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+                  ),
+                ),
+              ),
+              if (code != null && code.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    code,
+                    style: GoogleFonts.inter(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
@@ -414,7 +475,7 @@ class _LeavesScreenState extends State<LeavesScreen> {
               Text(
                 '$remaining',
                 style: GoogleFonts.inter(
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                   color: color,
                 ),
@@ -423,19 +484,30 @@ class _LeavesScreenState extends State<LeavesScreen> {
               Text(
                 '/$total',
                 style: GoogleFonts.inter(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
+                  color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$usedCount used',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
                   color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 2),
-          Text(
-            'Remaining',
-            style: GoogleFonts.inter(
-              fontSize: 10,
-              color: isDark ? AppColors.darkMuted : AppColors.lightMuted,
+          const SizedBox(height: 5),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 3,
+              backgroundColor:
+                  isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
             ),
           ),
         ],

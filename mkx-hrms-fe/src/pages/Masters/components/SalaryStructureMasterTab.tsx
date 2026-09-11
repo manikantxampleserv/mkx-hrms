@@ -10,14 +10,7 @@ import {
   Payments,
   Search,
 } from "@mui/icons-material";
-import {
-  Button,
-  Chip,
-  IconButton,
-  InputAdornment,
-  InputBase,
-  MenuItem,
-} from "@mui/material";
+import { Button, Chip, IconButton, InputAdornment, InputBase, MenuItem } from "@mui/material";
 import { ArrowMenu } from "shared/ArrowMenu";
 import { CustomDialog } from "shared/CustomDialog";
 import { DataTable, type ColumnDef } from "shared/DataTable";
@@ -147,44 +140,42 @@ export const SalaryStructureMasterTab: React.FC = () => {
     const total = structures.length;
     const active = structures.filter((s) => s.status === "Active").length;
     const inactive = structures.filter((s) => s.status === "Inactive").length;
-    const avgBasic =
-      total > 0
-        ? (structures.reduce((acc, s) => acc + Number(s.basic_percentage || 0), 0) / total).toFixed(0)
-        : "50";
+    const totalEarnings = structures.filter((s) => !s.is_deduction).length;
+    const totalDeductions = structures.filter((s) => s.is_deduction).length;
 
     return [
       {
         id: "total-structures",
-        title: "Total Packages",
+        title: "Total Components",
         value: String(total),
-        subtext: "Compensation structures defined",
+        subtext: "Salary structures configured",
         icon: AccountBalanceWallet,
         icon_color: "text-[#00b1d8]",
         icon_bg: "bg-[#00b1d8]/10",
       },
       {
         id: "active-packages",
-        title: "Active Frameworks",
+        title: "Active Components",
         value: String(active),
-        subtext: `${total > 0 ? ((active / total) * 100).toFixed(1) : 0}% active payroll formulas`,
+        subtext: `${total > 0 ? ((active / total) * 100).toFixed(1) : 0}% active in payroll formulas`,
         icon: CheckCircle,
         icon_color: "text-[#45ba50]",
         icon_bg: "bg-[#45ba50]/10",
       },
       {
         id: "inactive-packages",
-        title: "Inactive Frameworks",
+        title: "Inactive Components",
         value: String(inactive),
-        subtext: `${total > 0 ? ((inactive / total) * 100).toFixed(1) : 0}% deprecated formulas`,
+        subtext: `${total > 0 ? ((inactive / total) * 100).toFixed(1) : 0}% disabled components`,
         icon: Cancel,
         icon_color: "text-[#f14d4c]",
         icon_bg: "bg-[#f14d4c]/10",
       },
       {
-        id: "avg-basic",
-        title: "Mean Basic Split",
-        value: `${avgBasic}%`,
-        subtext: "Average basic salary component",
+        id: "earnings-count",
+        title: "Earnings / Deductions",
+        value: `${totalEarnings} / ${totalDeductions}`,
+        subtext: "Configured component balance",
         icon: Payments,
         icon_color: "text-[#ad87ed]",
         icon_bg: "bg-[#ad87ed]/10",
@@ -198,32 +189,22 @@ export const SalaryStructureMasterTab: React.FC = () => {
    * @param values - Form values
    */
   const handleFormSubmit = async (values: SalaryStructureFormValues) => {
+    const payload = {
+      name: values.name,
+      code: values.code,
+      description: values.description,
+      is_deduction: values.is_deduction,
+      is_taxable: values.is_taxable,
+      is_base_salary: values.is_base_salary,
+      calculation_type: values.calculation_type,
+      default_value: Number(values.default_value),
+      status: values.status,
+    };
+
     if (editingItem) {
-      await updateMutation.mutateAsync({
-        name: values.name,
-        code: values.code,
-        description: values.description,
-        basic_percentage: Number(values.basic_percentage),
-        hra_percentage: Number(values.hra_percentage),
-        da_percentage: Number(values.da_percentage),
-        special_allowance: Number(values.special_allowance),
-        pf_percentage: Number(values.pf_percentage),
-        tax_deduction_type: values.tax_deduction_type,
-        status: values.status,
-      });
+      await updateMutation.mutateAsync(payload);
     } else {
-      await createMutation.mutateAsync({
-        name: values.name,
-        code: values.code,
-        description: values.description,
-        basic_percentage: Number(values.basic_percentage),
-        hra_percentage: Number(values.hra_percentage),
-        da_percentage: Number(values.da_percentage),
-        special_allowance: Number(values.special_allowance),
-        pf_percentage: Number(values.pf_percentage),
-        tax_deduction_type: values.tax_deduction_type,
-        status: values.status,
-      });
+      await createMutation.mutateAsync(payload);
     }
   };
 
@@ -232,10 +213,12 @@ export const SalaryStructureMasterTab: React.FC = () => {
    */
   const columns: ColumnDef<MasterSalaryStructure>[] = [
     {
-      header: "STRUCTURE NAME",
+      header: "COMPONENT NAME",
       cell: (row) => (
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-[5px] bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <div
+            className={`w-9 h-9 rounded-[5px] flex items-center justify-center shrink-0 ${row.is_deduction ? "bg-rose-500/10 text-rose-500" : "bg-emerald-500/10 text-emerald-500"}`}
+          >
             <AccountBalanceWallet className="!w-4 !h-4" />
           </div>
           <div className="flex flex-col">
@@ -247,33 +230,55 @@ export const SalaryStructureMasterTab: React.FC = () => {
       width: "25%",
     },
     {
-      header: "TAX REGIME",
+      header: "TYPE",
       cell: (row) => (
-        <span className="text-xs font-semibold px-2 py-0.5 rounded-[4px] bg-secondary border border-border text-foreground">
-          {row.tax_deduction_type}
+        <span
+          className={`text-xs font-semibold px-2.5 py-0.5 rounded-[4px] border ${
+            row.is_deduction
+              ? "bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400"
+              : "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+          }`}
+        >
+          {row.is_deduction ? "Deduction (-)" : "Earning (+)"}
         </span>
       ),
       width: "15%",
     },
     {
-      header: "EARNINGS / DEDUCTIONS FORMULA",
+      header: "CLASSIFICATION",
       cell: (row) => (
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11px] px-2 py-0.5 rounded-[4px] bg-blue-500/10 text-blue-500 font-medium">
-            Basic: {row.basic_percentage}%
-          </span>
-          <span className="text-[11px] px-2 py-0.5 rounded-[4px] bg-purple-500/10 text-purple-500 font-medium">
-            HRA: {row.hra_percentage}%
-          </span>
-          <span className="text-[11px] px-2 py-0.5 rounded-[4px] bg-amber-500/10 text-amber-500 font-medium">
-            DA: {row.da_percentage}%
-          </span>
-          <span className="text-[11px] px-2 py-0.5 rounded-[4px] bg-rose-500/10 text-rose-500 font-medium">
-            PF: {row.pf_percentage}%
+          {row.is_base_salary && (
+            <span className="text-[11px] px-2 py-0.5 rounded-[4px] bg-primary/10 border border-primary/20 text-primary font-semibold">
+              Base Salary
+            </span>
+          )}
+          <span
+            className={`text-[11px] px-2 py-0.5 rounded-[4px] border font-medium ${
+              row.is_taxable
+                ? "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
+                : "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400"
+            }`}
+          >
+            {row.is_taxable ? "Taxable" : "Tax Exempt"}
           </span>
         </div>
       ),
-      width: "40%",
+      width: "20%",
+    },
+    {
+      header: "CALCULATION & DEFAULT",
+      cell: (row) => (
+        <div className="flex items-center gap-1.5 text-xs text-foreground">
+          <span className="font-medium text-muted-foreground">{row.calculation_type}:</span>
+          <span className="font-semibold">
+            {row.calculation_type === "Percentage"
+              ? `${Number(row.default_value || 0)}%`
+              : `$${Number(row.default_value || 0).toLocaleString()}`}
+          </span>
+        </div>
+      ),
+      width: "20%",
     },
     {
       header: "STATUS",
@@ -336,8 +341,6 @@ export const SalaryStructureMasterTab: React.FC = () => {
           />
         ))}
       </div>
-
-
 
       {/* Action Toolbar matching Employee Section */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

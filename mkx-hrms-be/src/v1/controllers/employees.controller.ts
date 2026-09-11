@@ -24,6 +24,7 @@ export const getEmployees = async (
     const department = (req.query.department as string) || "All";
     const role = (req.query.role as string) || "All";
     const manager = (req.query.manager as string) || "All";
+    const shift = (req.query.shift as string) || "All";
     const startDate = req.query.startDate as string | undefined;
     const endDate = req.query.endDate as string | undefined;
 
@@ -34,6 +35,8 @@ export const getEmployees = async (
       department_id?: number;
       role_rel?: { name?: string };
       role_id?: number;
+      shift_rel?: { name?: string };
+      shift_id?: number;
       manager?: { name?: string };
       manager_id?: number;
       join_date?: { gte?: Date; lte?: Date };
@@ -48,6 +51,7 @@ export const getEmployees = async (
           { email: { contains: search, mode: "insensitive" } },
           { role_rel: { name: { contains: search, mode: "insensitive" } } },
           { department_rel: { name: { contains: search, mode: "insensitive" } } },
+          { shift_rel: { name: { contains: search, mode: "insensitive" } } },
         ],
       });
     }
@@ -67,6 +71,13 @@ export const getEmployees = async (
         whereClause.role_id = Number(role);
       } else {
         whereClause.role_rel = { name: role };
+      }
+    }
+    if (shift !== "All") {
+      if (!isNaN(Number(shift))) {
+        whereClause.shift_id = Number(shift);
+      } else {
+        whereClause.shift_rel = { name: shift };
       }
     }
     if (manager !== "All") {
@@ -93,13 +104,60 @@ export const getEmployees = async (
       whereClause.AND = andConditions;
     }
 
-    const employees = await prisma.employee.findMany({
+    const employees = await (
+      prisma.employee as unknown as {
+        findMany: (args: unknown) => Promise<
+          Array<{
+            id: number;
+            employee_id: string;
+            name: string;
+            first_name: string | null;
+            last_name: string | null;
+            email: string;
+            role_id: number | null;
+            department_id: number | null;
+            shift_id: number | null;
+            status: string;
+            manager_id: number | null;
+            join_date: Date;
+            birth_date: Date | null;
+            address: string | null;
+            phone: string | null;
+            avatar: string | null;
+            department_rel?: { name: string } | null;
+            role_rel?: { name: string } | null;
+            shift_rel?: { id: number; name: string; start_time: string; end_time: string } | null;
+            manager?: { name: string } | null;
+            salary_structures?: Array<{
+              id: number;
+              amount: unknown;
+              salary_structure: {
+                id: number;
+                name: string;
+                code: string;
+                is_deduction: boolean;
+                is_taxable: boolean;
+                is_base_salary: boolean;
+                calculation_type: string;
+                default_value: unknown;
+              };
+            }>;
+          }>
+        >;
+      }
+    ).findMany({
       where: whereClause,
       orderBy: { created_at: "desc" },
       include: {
         department_rel: true,
         role_rel: true,
+        shift_rel: true,
         manager: true,
+        salary_structures: {
+          include: {
+            salary_structure: true,
+          },
+        },
       },
     });
 
@@ -114,6 +172,10 @@ export const getEmployees = async (
       role_id: emp.role_id,
       department: emp.department_rel?.name || "General",
       department_id: emp.department_id,
+      shift: emp.shift_rel?.name || null,
+      shift_id: emp.shift_id,
+      shift_time: emp.shift_rel ? `${emp.shift_rel.start_time} - ${emp.shift_rel.end_time}` : null,
+      shift_rel: emp.shift_rel,
       status: emp.status,
       manager: emp.manager?.name || "None",
       manager_id: emp.manager_id,
@@ -122,6 +184,15 @@ export const getEmployees = async (
       address: emp.address,
       phone: emp.phone,
       avatar: emp.avatar || undefined,
+      salary_structures:
+        emp.salary_structures?.map((s) => ({
+          id: s.id,
+          amount: Number(s.amount),
+          salary_structure: {
+            ...s.salary_structure,
+            default_value: Number(s.salary_structure.default_value),
+          },
+        })) || [],
     }));
 
     res.sendSuccess({
@@ -238,6 +309,10 @@ export const createEmployee = async (
       req.body.manager_id !== ""
         ? Number(req.body.manager_id)
         : null;
+    let shift_id: number | null =
+      req.body.shift_id !== undefined && req.body.shift_id !== null && req.body.shift_id !== ""
+        ? Number(req.body.shift_id)
+        : null;
 
     if (!department_id && req.body.department) {
       const dbDept = await prisma.department.findFirst({ where: { name: req.body.department } });
@@ -247,6 +322,11 @@ export const createEmployee = async (
     if (!role_id && req.body.role) {
       const dbRole = await prisma.role.findFirst({ where: { name: req.body.role } });
       if (dbRole) role_id = dbRole.id;
+    }
+
+    if (!shift_id && req.body.shift) {
+      const dbShift = await prisma.workShift.findFirst({ where: { name: req.body.shift } });
+      if (dbShift) shift_id = dbShift.id;
     }
 
     if (!manager_id && (req.body.manager || req.body.manager_name)) {
@@ -259,6 +339,7 @@ export const createEmployee = async (
       ...req.body,
       role_id,
       department_id,
+      shift_id,
       manager_id,
     };
 
@@ -361,6 +442,17 @@ export const updateEmployee = async (
       if (dbManager) manager_id = dbManager.id;
     }
 
+    let shift_id: number | null | undefined =
+      req.body.shift_id !== undefined && req.body.shift_id !== ""
+        ? req.body.shift_id === null
+          ? null
+          : Number(req.body.shift_id)
+        : undefined;
+    if (shift_id === undefined && req.body.shift) {
+      const dbShift = await prisma.workShift.findFirst({ where: { name: req.body.shift } });
+      if (dbShift) shift_id = dbShift.id;
+    }
+
     const updated = await prisma.$transaction(async (tx) => {
       const emp = await tx.employee.update({
         where: { id: existing.id },
@@ -369,6 +461,7 @@ export const updateEmployee = async (
           email: email ?? existing.email,
           role_id: role_id !== undefined ? role_id : existing.role_id,
           department_id: department_id !== undefined ? department_id : existing.department_id,
+          shift_id: shift_id !== undefined ? shift_id : existing.shift_id,
           status: status ?? existing.status,
           manager_id: manager_id !== undefined ? manager_id : existing.manager_id,
           join_date: join_date ? new Date(join_date) : existing.join_date,
@@ -380,6 +473,7 @@ export const updateEmployee = async (
         include: {
           role_rel: true,
           department_rel: true,
+          shift_rel: true,
           manager: true,
         },
       });
@@ -396,12 +490,166 @@ export const updateEmployee = async (
         });
       }
 
+      if (Array.isArray(req.body.salary_structures)) {
+        const client = tx as unknown as {
+          employeeSalaryStructure: {
+            deleteMany: (args: { where: { employee_id: number } }) => Promise<unknown>;
+            create: (args: {
+              data: {
+                employee_id: number;
+                salary_structure_id: number;
+                amount: number;
+                effective_date: Date;
+                status: string;
+              };
+            }) => Promise<unknown>;
+          };
+        };
+
+        await client.employeeSalaryStructure.deleteMany({
+          where: { employee_id: existing.id },
+        });
+
+        for (const item of req.body.salary_structures) {
+          await client.employeeSalaryStructure.create({
+            data: {
+              employee_id: existing.id,
+              salary_structure_id: Number(item.salary_structure_id),
+              amount: Number(item.amount) || 0,
+              effective_date: item.effective_date ? new Date(item.effective_date) : new Date(),
+              status: item.status || "Active",
+            },
+          });
+        }
+      }
+
       return emp;
     });
 
     res.sendSuccess({
       message: "Employee updated successfully",
       data: updated,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Controller to retrieve a single employee record by identifier with full relations
+ *
+ * @param req - Express request with employee ID in params
+ * @param res - Express response with success or error payload
+ * @param next - Next middleware delegate for error handling
+ */
+export const getEmployeeById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const numId = !isNaN(Number(rawId)) ? Number(rawId) : undefined;
+
+    const employee = await prisma.employee.findFirst({
+      where: {
+        OR: [{ employee_id: rawId }, ...(numId ? [{ id: numId }] : [])],
+      },
+      include: {
+        department_rel: true,
+        role_rel: true,
+        shift_rel: true,
+        manager: {
+          select: {
+            id: true,
+            employee_id: true,
+            name: true,
+            email: true,
+            avatar: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            status: true,
+            created_at: true,
+          },
+        },
+        salary_structures: {
+          include: {
+            salary_structure: true,
+          },
+          orderBy: {
+            id: "asc",
+          },
+        },
+        payrolls: {
+          orderBy: {
+            created_at: "desc",
+          },
+          take: 12,
+        },
+      },
+    });
+
+    if (!employee) {
+      res.sendError({
+        statusCode: 404,
+        message: "Employee not found",
+      });
+      return;
+    }
+
+    res.sendSuccess({
+      message: "Employee retrieved successfully",
+      data: {
+        id: employee.employee_id,
+        db_id: employee.id,
+        name: employee.name,
+        first_name: employee.first_name,
+        last_name: employee.last_name,
+        email: employee.email,
+        phone: employee.phone,
+        address: employee.address,
+        avatar: employee.avatar,
+        status: employee.status,
+        join_date: employee.join_date ? employee.join_date.toISOString().split("T")[0] : "",
+        birth_date: employee.birth_date ? employee.birth_date.toISOString().split("T")[0] : null,
+        department: employee.department_rel?.name || "General",
+        department_id: employee.department_id,
+        role: employee.role_rel?.name || "Employee",
+        role_id: employee.role_id,
+        shift: employee.shift_rel?.name || "General Shift",
+        shift_id: employee.shift_id,
+        shift_time: employee.shift_rel
+          ? `${employee.shift_rel.start_time} - ${employee.shift_rel.end_time}`
+          : null,
+        shift_rel: employee.shift_rel,
+        manager: employee.manager?.name || "None",
+        manager_id: employee.manager_id,
+        manager_details: employee.manager,
+        salary_structures: employee.salary_structures,
+        payrolls: employee.payrolls.map((p) => ({
+          id: p.payroll_code,
+          db_id: p.id,
+          month: p.month,
+          year: p.year,
+          gross_pay: `$${Number(p.gross_pay).toLocaleString()}`,
+          total_deductions: `$${Number(p.total_deductions).toLocaleString()}`,
+          net_pay: `$${Number(p.net_pay).toLocaleString()}`,
+          raw_gross: Number(p.gross_pay),
+          raw_deductions: Number(p.total_deductions),
+          raw_net: Number(p.net_pay),
+          working_days: p.working_days,
+          paid_days: Number(p.paid_days),
+          lop_days: Number(p.lop_days),
+          lop_amount: Number(p.lop_amount),
+          status: p.status,
+          pay_date: p.pay_date ? p.pay_date.toISOString().split("T")[0] : "",
+        })),
+        user: employee.user,
+      },
     });
   } catch (err) {
     next(err);
@@ -476,6 +724,7 @@ export const exportEmployees = async (
       include: {
         role_rel: true,
         department_rel: true,
+        shift_rel: true,
         manager: true,
       },
     });
@@ -486,6 +735,7 @@ export const exportEmployees = async (
       Email: emp.email,
       Role: emp.role_rel?.name || "Staff",
       Department: emp.department_rel?.name || "General",
+      Shift: emp.shift_rel ? `${emp.shift_rel.name} (${emp.shift_rel.start_time} - ${emp.shift_rel.end_time})` : "None",
       Status: emp.status,
       Manager: emp.manager?.name || "None",
       "Join Date": emp.join_date ? emp.join_date.toISOString().split("T")[0] : "",
@@ -506,7 +756,7 @@ export const exportEmployees = async (
 };
 
 /**
- * Controller to fetch dynamic filter options (departments, roles, managers) directly from database
+ * Controller to fetch dynamic filter options (departments, roles, managers, shifts) directly from database
  *
  * @param _req - Express request instance
  * @param res - Express response with sendSuccess helper
@@ -530,6 +780,12 @@ export const getEmployeeFilters = async (
       select: { name: true },
     });
 
+    const dbShifts = await prisma.workShift.findMany({
+      where: { status: "Active" },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, start_time: true, end_time: true },
+    });
+
     const dbEmployees = await prisma.employee.findMany({
       include: {
         manager: true,
@@ -550,9 +806,185 @@ export const getEmployeeFilters = async (
         departments: Array.from(departmentsSet).sort(),
         roles: Array.from(rolesSet).sort(),
         managers: Array.from(managersSet).sort(),
+        shifts: dbShifts,
       },
     });
   } catch (err) {
     next(err);
   }
 };
+
+/**
+ * Controller to retrieve all assigned salary structure components for a specific employee
+ *
+ * @param req - Express request with employee ID in route params
+ * @param res - Express response
+ * @param next - Next middleware delegate
+ */
+export const getEmployeeSalaryStructures = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const employee = await prisma.employee.findFirst({
+      where: {
+        OR: [{ employee_id: id }, { id: !isNaN(Number(id)) ? Number(id) : undefined }],
+      },
+    });
+
+    if (!employee) {
+      res.sendError({
+        statusCode: 404,
+        message: "Employee not found",
+      });
+      return;
+    }
+
+    const assignments = await (
+      prisma as unknown as {
+        employeeSalaryStructure: {
+          findMany: (args: {
+            where: { employee_id: number };
+            include: { salary_structure: true };
+            orderBy: { id: "asc" | "desc" };
+          }) => Promise<
+            Array<{
+              id: number;
+              employee_id: number;
+              salary_structure_id: number;
+              amount: unknown;
+              effective_date: Date;
+              status: string;
+              salary_structure: {
+                id: number;
+                name: string;
+                code: string;
+                description: string | null;
+                is_deduction: boolean;
+                is_taxable: boolean;
+                is_base_salary: boolean;
+                calculation_type: string;
+                default_value: unknown;
+                status: string;
+              };
+            }>
+          >;
+        };
+      }
+    ).employeeSalaryStructure.findMany({
+      where: { employee_id: employee.id },
+      include: { salary_structure: true },
+      orderBy: { id: "asc" },
+    });
+
+    const formatted = assignments.map((item) => ({
+      id: item.id,
+      employee_id: item.employee_id,
+      salary_structure_id: item.salary_structure_id,
+      amount: Number(item.amount),
+      effective_date: item.effective_date,
+      status: item.status,
+      salary_structure: {
+        ...item.salary_structure,
+        default_value: Number(item.salary_structure.default_value),
+      },
+    }));
+
+    res.sendSuccess({
+      message: "Employee salary structures retrieved successfully",
+      data: formatted,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * Controller to assign or replace all salary structures for an employee in bulk
+ *
+ * @param req - Express request with employee ID in route params and assignments array in body
+ * @param res - Express response
+ * @param next - Next middleware delegate
+ */
+export const assignEmployeeSalaryStructures = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const employee = await prisma.employee.findFirst({
+      where: {
+        OR: [{ employee_id: id }, { id: !isNaN(Number(id)) ? Number(id) : undefined }],
+      },
+    });
+
+    if (!employee) {
+      res.sendError({
+        statusCode: 404,
+        message: "Employee not found",
+      });
+      return;
+    }
+
+    const { assignments } = req.body as {
+      assignments: Array<{
+        salary_structure_id: number;
+        amount: number;
+        effective_date?: string | Date;
+        status?: string;
+      }>;
+    };
+
+    if (!Array.isArray(assignments)) {
+      res.sendError({
+        statusCode: 400,
+        message: "Assignments array is required",
+      });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const client = tx as unknown as {
+        employeeSalaryStructure: {
+          deleteMany: (args: { where: { employee_id: number } }) => Promise<unknown>;
+          create: (args: {
+            data: {
+              employee_id: number;
+              salary_structure_id: number;
+              amount: number;
+              effective_date: Date;
+              status: string;
+            };
+          }) => Promise<unknown>;
+        };
+      };
+
+      await client.employeeSalaryStructure.deleteMany({
+        where: { employee_id: employee.id },
+      });
+
+      for (const item of assignments) {
+        await client.employeeSalaryStructure.create({
+          data: {
+            employee_id: employee.id,
+            salary_structure_id: Number(item.salary_structure_id),
+            amount: Number(item.amount) || 0,
+            effective_date: item.effective_date ? new Date(item.effective_date) : new Date(),
+            status: item.status || "Active",
+          },
+        });
+      }
+    });
+
+    res.sendSuccess({
+      message: "Employee salary structures updated successfully",
+      data: { employee_id: employee.id, count: assignments.length },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+

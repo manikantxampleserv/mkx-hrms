@@ -8,6 +8,8 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/metric_card.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../../auth/state/auth_provider.dart';
+import '../../leaves/state/leaves_provider.dart';
+import '../../leaves/widgets/apply_leave_bottom_sheet.dart';
 import '../state/attendance_provider.dart';
 import '../widgets/punch_card.dart';
 
@@ -32,10 +34,17 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
   Future<void> _loadData() async {
     final auth = context.read<AuthProvider>();
     final attendance = context.read<AttendanceProvider>();
-    await attendance.loadAttendance(
-      employeeId: auth.currentUser?.employeeDbId,
-      employeeCode: auth.currentUser?.employeeId,
-    );
+    final leaves = context.read<LeavesProvider>();
+    await Future.wait([
+      attendance.loadAttendance(
+        employeeId: auth.currentUser?.employeeDbId,
+        employeeCode: auth.currentUser?.employeeId,
+      ),
+      leaves.loadLeaves(
+        employeeId: auth.currentUser?.employeeDbId,
+        employeeCode: auth.currentUser?.employeeId,
+      ),
+    ]);
   }
 
   Future<void> _handlePunchIn() async {
@@ -101,7 +110,16 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final auth = context.watch<AuthProvider>();
     final attendance = context.watch<AttendanceProvider>();
+    final leaves = context.watch<LeavesProvider>();
     final user = auth.currentUser;
+
+    final totalRemainingLeaves = leaves.balances?.list.isNotEmpty == true
+        ? leaves.balances!.list.fold<int>(0, (sum, q) => sum + q.remaining)
+        : (leaves.masterLeaveTypes.isNotEmpty
+            ? leaves.masterLeaveTypes
+                .fold<int>(0, (sum, t) => sum + t.daysPerYear)
+            : 0);
+    final pendingLeaveRequests = leaves.balances?.pendingRequests ?? 0;
 
     return Scaffold(
       body: SafeArea(
@@ -217,6 +235,40 @@ class _AttendanceDashboardScreenState extends State<AttendanceDashboardScreen> {
                         subtext: 'After 10:00 AM',
                         icon: Icons.access_time_rounded,
                         iconColor: AppColors.warning,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: MetricCard(
+                        title: 'Leave Balance',
+                        value: '$totalRemainingLeaves',
+                        subtext: 'Available days',
+                        icon: Icons.beach_access_rounded,
+                        iconColor: AppColors.info,
+                        onTap: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => const ApplyLeaveBottomSheet(),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: MetricCard(
+                        title: 'Pending Leaves',
+                        value: '$pendingLeaveRequests',
+                        subtext: pendingLeaveRequests == 1
+                            ? '1 awaiting review'
+                            : '$pendingLeaveRequests awaiting review',
+                        icon: Icons.hourglass_top_rounded,
+                        iconColor: const Color(0xffa855f7),
                       ),
                     ),
                   ],
